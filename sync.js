@@ -6,6 +6,7 @@ box.innerHTML='<strong>☁️ Synkronisering</strong><p id="cloud-status">Ikke f
 document.querySelector('main').append(box);box.insertAdjacentHTML('beforeend','<small style="display:block;margin-top:8px;color:#a4b1a5">App-version: 2026-10-28.20</small>');
 const status=document.getElementById('cloud-status');
 const state={client:null,user:null,ready:false,busy:false,queued:false,last:new Map(),versions:new Map()};
+const wineSignature=w=>JSON.stringify(w,(k,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.fromEntries(Object.keys(v).sort().map(key=>[key,v[key]])):v);
 const key='vin-supabase-settings';
 // Offentlig Supabase-konfiguration: samme projekt på Safari og hjemmeskærmsapp.
 // Kun publishable key – ingen adgangskoder eller hemmelige nøgler.
@@ -75,7 +76,7 @@ else{
  
 }
 }catch(e){setStatus('Opsætningsfejl: '+e.message)}}
-async function pull(initial=false){if(!state.client||!state.user)return;await running.catch(()=>{});state.ready=false;
+async function pull(initial=false){if(!state.client||!state.user)return;state.ready=false;
 const {data,error}=await state.client.from('wines').select('id,data,updated_at').eq('user_id',state.user.id).limit(10000);if(error)throw error;
 // Cloud er autoritativ efter login. Gamle lokale poster må aldrig genoprette slettede vine.
 const remote=data.map(r=>({...r.data,id:r.id}));
@@ -90,7 +91,7 @@ if(!remote.length&&local.length){
  return;
 }
 const resulting=remote;
-wines=resulting;localStorage.setItem(KEY,JSON.stringify(wines));render();state.last=new Map(wines.map(w=>[w.id,JSON.stringify(w)]));state.versions=new Map(data.map(r=>[r.id,r.updated_at]));state.ready=true;setStatus('Cloud synkroniseret · '+wines.length+' vine');
+wines=resulting;localStorage.setItem(KEY,JSON.stringify(wines));render();state.last=new Map(wines.map(w=>[w.id,wineSignature(w)]));state.versions=new Map(data.map(r=>[r.id,r.updated_at]));state.ready=true;setStatus('Cloud synkroniseret · '+wines.length+' vine');
 const {data:shared,error:shareError}=await state.client.from('public_wines').select('id').eq('owner_id',state.user.id).limit(1);
 if(!shareError){sharing=!!shared?.length||localStorage.getItem(shareKey())==='yes';}
 shareButtons();
@@ -102,19 +103,19 @@ let running=Promise.resolve();
 async function pushChanges(){
  if(!state.ready||!state.user)return;
  const baseline=state.last;
- const current=new Map(wines.map(w=>[w.id,JSON.stringify(w)]));
- const changed=wines.filter(w=>baseline.get(w.id)!==JSON.stringify(w));
+ const current=new Map(wines.map(w=>[w.id,wineSignature(w)]));
+ const changed=wines.filter(w=>baseline.get(w.id)!==wineSignature(w));
  if(!changed.length)return;
  if(changed.some(w=>!w.id||!/^([0-9a-f]{8}-){1}[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(w.id))))throw Error('En vin mangler gyldigt ID. Hent fra cloud.');
  setStatus('Kontrollerer og gemmer ændringer i cloud…');
  // Undgå at skrive en gammel kopi oven på en ændring foretaget på en anden enhed.
  const {data:remote,error:fetchError}=await state.client.from('wines').select('id,data').eq('user_id',state.user.id).in('id',changed.map(w=>w.id));
  if(fetchError)throw fetchError;
- const remoteMap=new Map((remote||[]).map(r=>[r.id,JSON.stringify({...r.data,id:r.id})]));
+ const remoteMap=new Map((remote||[]).map(r=>[r.id,wineSignature({...r.data,id:r.id})]));
  for(const w of changed){
   const previous=baseline.get(w.id),server=remoteMap.get(w.id);
   if(previous!==undefined&&server===undefined)throw Error('Konflikt: '+w.producer+' er slettet i cloud. Ingen ændringer gemt. Hent fra cloud for at opdatere.');
-  if(previous!==undefined&&server!==previous&&server!==JSON.stringify(w))throw Error('Konflikt: '+w.producer+' er ændret på en anden enhed. Ingen overskrivning. Eksportér evt. backup og hent fra cloud.');
+  if(previous!==undefined&&server!==previous&&server!==wineSignature(w))throw Error('Konflikt: '+w.producer+' er ændret på en anden enhed. Ingen overskrivning. Eksportér evt. backup og hent fra cloud.');
   if(previous===undefined&&server!==undefined)throw Error('Konflikt: vinen findes allerede i cloud. Ingen overskrivning.');
  }
  // Nye poster indsættes kun, eksisterende poster opdateres enkeltvis.
@@ -134,7 +135,7 @@ async function pushChanges(){
    if(result?.length!==1)throw Error('Konflikt under lagring af '+w.producer+'. Hent fra cloud før flere ændringer.');
    state.versions.set(w.id,result[0].updated_at);
   }
-  baseline.set(w.id,JSON.stringify(w));
+  baseline.set(w.id,wineSignature(w));
  }
  setStatus('Cloud synkroniseret · '+wines.length+' vine');
  if(sharing){try{await publishSnapshot()}catch(e){setStatus('Private vine gemt, men offentlig visning kunne ikke opdateres: '+e.message)}}
@@ -299,6 +300,6 @@ document.getElementById('cloud-reset').onclick=async()=>{
  alert(error?'Kunne ikke sende nulstillingsmail: '+error.message:'Du får en e-mail med et link til at oprette din adgangskode. Linket bruges kun denne ene gang.');
 };
 document.getElementById('cloud-logout').onclick=async()=>{await state.client?.auth.signOut();state.ready=false;sharing=false;shareButtons();setStatus('Logget ud');};
-document.getElementById('cloud-refresh').onclick=async()=>{if(!confirm('Hent cloud-data. Ikke-synkroniserede lokale ændringer kan blive overskrevet. Fortsæt?'))return;try{await pull()}catch(e){setStatus('Hentning fejlede: '+e.message)}};
+document.getElementById('cloud-refresh').onclick=async()=>{if(!confirm('Hent cloud-data. Ikke-synkroniserede lokale ændringer kan blive overskrevet. Fortsæt?'))return;running=running.then(()=>pull()).catch(e=>setStatus('Hentning fejlede: '+e.message));await running};
 init();
 })();
