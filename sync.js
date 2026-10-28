@@ -5,7 +5,7 @@ const box=document.createElement('section');box.style.cssText='border:1px solid 
 box.innerHTML='<strong>☁️ Synkronisering</strong><p id="cloud-status">Ikke forbundet. Dine vine gemmes lokalt.</p><div class="utility"><button id="cloud-setup">Opsæt cloud</button><button id="cloud-mobile-link" hidden>Kopiér mobilopsætning</button><button id="cloud-login" hidden>Log ind med e-mail og kode</button><button id="cloud-magic" hidden>Send login-link via e-mail</button><button id="cloud-reset" hidden>Opret / nulstil adgangskode</button><button id="cloud-password" hidden>Opret adgangskode</button><button id="cloud-logout" hidden>Log ud</button><button id="cloud-refresh" hidden>Hent fra cloud</button></div>';
 document.querySelector('main').append(box);box.insertAdjacentHTML('beforeend','<small style="display:block;margin-top:8px;color:#a4b1a5">App-version: 2026-10-28.20</small>');
 const status=document.getElementById('cloud-status');
-const state={client:null,user:null,ready:false,busy:false,queued:false,last:new Map()};
+const state={client:null,user:null,ready:false,busy:false,queued:false,last:new Map(),versions:new Map()};
 const key='vin-supabase-settings';
 // Offentlig Supabase-konfiguration: samme projekt på Safari og hjemmeskærmsapp.
 // Kun publishable key – ingen adgangskoder eller hemmelige nøgler.
@@ -76,7 +76,7 @@ else{
 }
 }catch(e){setStatus('Opsætningsfejl: '+e.message)}}
 async function pull(initial=false){if(!state.client||!state.user)return;await running.catch(()=>{});state.ready=false;
-const {data,error}=await state.client.from('wines').select('id,data').eq('user_id',state.user.id).limit(10000);if(error)throw error;
+const {data,error}=await state.client.from('wines').select('id,data,updated_at').eq('user_id',state.user.id).limit(10000);if(error)throw error;
 // Cloud er autoritativ efter login. Gamle lokale poster må aldrig genoprette slettede vine.
 const remote=data.map(r=>({...r.data,id:r.id}));
 const local=wines.slice();
@@ -90,7 +90,7 @@ if(!remote.length&&local.length){
  return;
 }
 const resulting=remote;
-wines=resulting;localStorage.setItem(KEY,JSON.stringify(wines));render();state.last=new Map(wines.map(w=>[w.id,JSON.stringify(w)]));state.ready=true;setStatus('Cloud synkroniseret · '+wines.length+' vine');
+wines=resulting;localStorage.setItem(KEY,JSON.stringify(wines));render();state.last=new Map(wines.map(w=>[w.id,JSON.stringify(w)]));state.versions=new Map(data.map(r=>[r.id,r.updated_at]));state.ready=true;setStatus('Cloud synkroniseret · '+wines.length+' vine');
 const {data:shared,error:shareError}=await state.client.from('public_wines').select('id').eq('owner_id',state.user.id).limit(1);
 if(!shareError){sharing=!!shared?.length||localStorage.getItem(shareKey())==='yes';}
 shareButtons();
@@ -122,13 +122,17 @@ async function pushChanges(){
  for(const w of changed){
   const isNew=!baseline.has(w.id);
   if(isNew){
-   const {error}=await state.client.from('wines').insert({id:w.id,user_id:state.user.id,data:w,updated_at:new Date().toISOString()});
+   const {data:inserted,error}=await state.client.from('wines').insert({id:w.id,user_id:state.user.id,data:w,updated_at:new Date().toISOString()}).select('id,updated_at').single();
    if(error)throw error;
+   state.versions.set(w.id,inserted.updated_at);
   }else{
+   const previousVersion=state.versions.get(w.id);
+   if(!previousVersion)throw Error('Mangler versionsmærke for '+w.producer+'. Hent fra cloud.');
    const {data:result,error}=await state.client.from('wines').update({data:w,updated_at:new Date().toISOString()})
-    .eq('user_id',state.user.id).eq('id',w.id).eq('data',JSON.parse(baseline.get(w.id))).select('id');
+    .eq('user_id',state.user.id).eq('id',w.id).eq('updated_at',previousVersion).select('id,updated_at');
    if(error)throw error;
    if(result?.length!==1)throw Error('Konflikt under lagring af '+w.producer+'. Hent fra cloud før flere ændringer.');
+   state.versions.set(w.id,result[0].updated_at);
   }
   baseline.set(w.id,JSON.stringify(w));
  }
@@ -153,7 +157,7 @@ window.deleteWineFromCloud=async(id)=>{
   if(!data||data.length!==1)throw Error('Supabase bekræftede ikke sletningen. Vinen er bevaret.');
   wines=wines.filter(w=>w.id!==id);
   localStorage.setItem(KEY,JSON.stringify(wines));
-  state.last.delete(id);
+  state.last.delete(id);state.versions.delete(id);
   render();
   setStatus('Slettet i cloud · '+wines.length+' vine');
   if(sharing){try{await publishSnapshot()}catch(e){setStatus('Vin slettet privat; offentlig visning kunne ikke opdateres: '+e.message)}}
