@@ -52,7 +52,16 @@ function importOnce(){
 function enrichExisting(){
  let updated=0;
  for(const w of wines){
- if(typeof w.notes==='string' && w.notes.startsWith('TESTFLASKE fra foto · ')){w.notes=w.notes.slice('TESTFLASKE fra foto · '.length);updated++;}
+ if(typeof w.notes==='string'){
+ const cleaned=w.notes
+  .split('TESTFLASKE fra foto · ').join('')
+  .split('kontrollér producent, cuvée og årgang. · ').join('')
+  .split('Kontrollér producent, cuvée og årgang. · ').join('')
+  .split('kontrollér producent, cuvée og årgang.').join('')
+  .split('Kontrollér producent, cuvée og årgang.').join('')
+  .replace(/^(\\s*·\\s*)+|(\\s*·\\s*)+$/g,'').trim();
+ if(cleaned!==w.notes){w.notes=cleaned;updated++;}
+}
 
  const ix=entries.findIndex(([producer,name,year])=>producer.toLowerCase()===String(w.producer).toLowerCase()&&name.toLowerCase()===String(w.name).toLowerCase()&&(year??null)===(w.year??null));
  if(ix<0)continue;
