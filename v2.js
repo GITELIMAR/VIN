@@ -7,7 +7,7 @@ window.cloudCanEdit=()=>false;
 const e=id=>document.getElementById(id);
 let category='all';
 const overview=e('overview-panel');
-function selectCategory(value){category=value;render()}
+function selectCategory(value){category=value;const selector=e('wine-type-filter');if(selector)selector.value=value;render()}
 overview.addEventListener('click',event=>{
  const stat=event.target.closest('button[data-overview-type]');if(!stat||!overview.contains(stat))return;
  e('search').value='';e('filter').value='all';
@@ -15,6 +15,11 @@ overview.addEventListener('click',event=>{
  const panel=e('collection-panel');panel.open=true;
  panel.scrollIntoView({behavior:'smooth',block:'start'});
 });
+// Connect every filter control to the collection renderer.
+e('search').addEventListener('input',()=>render());
+e('filter').addEventListener('change',()=>render());
+e('order').addEventListener('change',()=>render());
+e('wine-type-filter').addEventListener('change',event=>selectCategory(event.target.value));
 const heading=document.createElement('div');heading.className='v2-section-title';
 heading.innerHTML='<h2>Alle vine</h2>';
 e('items').before(heading);
@@ -68,19 +73,17 @@ window.render=function(){
  )&&(filter==='all'||(filter==='favorites'?!!w.favorite:status(w)===filter))&&[
    w.name,w.producer,w.country,w.region,w.type,String(w.year??'')
  ].join(' ').toLocaleLowerCase('da').includes(query));
- const stable=(a,b)=>(String(a.producer)+' '+String(a.name)).localeCompare(String(b.producer)+' '+String(b.name),'da');
+ const stable=(a,b)=>(String(a.name)+' '+String(a.producer)).localeCompare(String(b.name)+' '+String(b.producer),'da');
  const typeOrder=['Rødvin','Hvidvin','Champagne','Mousserende','Rosé','Dessertvin','Andet'];
  const categoryRank=w=>{const rank=typeOrder.indexOf(w.type);return rank<0?typeOrder.length:rank};
  visible.sort((a,b)=>{
-  // Hold typer samlet i "Alle". I en enkelt kategori vises pointgivne vine øverst.
-  const byType=category==='all'?categoryRank(a)-categoryRank(b):0;
-  if(byType)return byType;
-  const sa=score(a),sb=score(b);
-  if(Boolean(sa)!==Boolean(sb))return sb?1:-1;
-  // Dokumenterede vurderinger sorteres altid højest først inden for samme kategori.
-  if(sa&&sb&&sa.value!==sb.value)return sb.value-sa.value;
   if(sort==='year')return (Number(b.year)||0)-(Number(a.year)||0)||stable(a,b);
   if(sort==='count')return count(b)-count(a)||stable(a,b);
+  if(sort==='rating'){
+   const sa=score(a),sb=score(b);
+   if(sa&&sb&&sa.value!==sb.value)return sb.value-sa.value;
+   if(Boolean(sa)!==Boolean(sb))return sb?1:-1;
+  }
   return stable(a,b);
  });
  const totalBottles=wines.reduce((n,w)=>n+count(w),0);
@@ -92,6 +95,17 @@ window.render=function(){
   const ai=knownOrder.indexOf(a[0]),bi=knownOrder.indexOf(b[0]);
   return (ai<0?knownOrder.length:ai)-(bi<0?knownOrder.length:bi)||a[0].localeCompare(b[0],'da');
  });
+ const typeSelector=e('wine-type-filter');
+ const allTypes=[...new Set(wines.map(w=>String(w.type||'Andet').trim()||'Andet'))].sort((a,b)=>{
+  const ai=knownOrder.indexOf(a),bi=knownOrder.indexOf(b);
+  return (ai<0?knownOrder.length:ai)-(bi<0?knownOrder.length:bi)||a.localeCompare(b,'da');
+ });
+ if(typeSelector.options.length!==allTypes.length+1||allTypes.some((type,i)=>typeSelector.options[i+1]?.value!==type)){
+  typeSelector.replaceChildren(new Option('Alle vintyper','all'),...allTypes.map(type=>new Option(type,type)));
+ }
+ if(category!=='all'&&!allTypes.includes(category))category='all';
+ typeSelector.value=category;
+ heading.querySelector('h2').textContent=category==='all'?'Alle vine':category;
  const overviewStats=e('overview-stats');
  overviewStats.querySelectorAll('[data-overview-type]:not([data-overview-type="all"])').forEach(node=>node.remove());
  for(const [type,n] of types){
