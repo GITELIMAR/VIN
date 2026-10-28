@@ -3,7 +3,7 @@
 (function(){
 const box=document.createElement('section');box.style.cssText='border:1px solid #455649;background:#1d2921;padding:17px;border-radius:12px;margin:20px 0';
 box.innerHTML='<strong>☁️ Synkronisering</strong><p id="cloud-status">Ikke forbundet. Dine vine gemmes lokalt.</p><div class="utility"><button id="cloud-setup">Opsæt cloud</button><button id="cloud-login" hidden>Log ind med e-mail og kode</button><button id="cloud-reset" hidden>Opret / nulstil adgangskode</button><button id="cloud-logout" hidden>Log ud</button><button id="cloud-refresh" hidden>Hent fra cloud</button></div>';
-document.querySelector('.stats').before(box);
+document.querySelector('.stats').before(box);box.insertAdjacentHTML('beforeend','<small style="display:block;margin-top:8px;color:#a4b1a5">App-version: 2026-10-28.2</small>');
 const status=document.getElementById('cloud-status');
 const state={client:null,user:null,ready:false,busy:false,queued:false,last:new Map()};
 const key='vin-supabase-settings';
@@ -11,7 +11,17 @@ const cfg=()=>{try{return JSON.parse(localStorage.getItem(key)||'null')}catch{re
 const setStatus=s=>status.textContent=s;
 function load(){return new Promise((resolve,reject)=>{if(window.supabase)return resolve();const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';s.onload=resolve;s.onerror=()=>reject(Error('Supabase-biblioteket kunne ikke indlæses'));document.head.append(s)})}
 async function init(){const c=cfg();if(!c?.url||!c?.anon){window.importPhotoExamplesOnce?.();return}try{
-await load();state.client=window.supabase.createClient(c.url,c.anon);const {data:{session},error}=await state.client.auth.getSession();if(error)throw error;
+await load();state.client=window.supabase.createClient(c.url,c.anon);state.client.auth.onAuthStateChange((event)=>{
+ if(event!=='PASSWORD_RECOVERY')return;
+ setTimeout(async()=>{
+  const password=prompt('Vælg en ny adgangskode (mindst 8 tegn):');
+  if(!password)return;
+  if(password.length<8){alert('Adgangskoden skal være mindst 8 tegn.');return}
+  const {error}=await state.client.auth.updateUser({password});
+  alert(error?'Kunne ikke gemme adgangskoden: '+error.message:'Din adgangskode er oprettet. Fremover logger du ind med e-mail og kode.');
+ },0);
+});
+const {data:{session},error}=await state.client.auth.getSession();if(error)throw error;
 state.user=session?.user||null;document.getElementById('cloud-login').hidden=!!state.user;document.getElementById('cloud-reset').hidden=!!state.user;document.getElementById('cloud-logout').hidden=!state.user;document.getElementById('cloud-refresh').hidden=!state.user;
 if(state.user)await pull(true);else {setStatus('Cloud sat op. Log ind via e-mail for at synkronisere.');window.importPhotoExamplesOnce?.();}
 state.client.auth.onAuthStateChange((_ev,s)=>{const id=s?.user?.id;if(id&&id!==state.user?.id){state.user=s.user;state.ready=false;setTimeout(()=>pull(true).catch(e=>setStatus(e.message)),0)}else if(!id){state.user=null;state.ready=false;setStatus('Logget ud. Lokal tilstand.')}document.getElementById('cloud-login').hidden=!!id;document.getElementById('cloud-reset').hidden=!!id;document.getElementById('cloud-logout').hidden=!id;document.getElementById('cloud-refresh').hidden=!id});
@@ -139,16 +149,6 @@ document.getElementById('cloud-reset').onclick=async()=>{
  const {error}=await state.client.auth.resetPasswordForEmail(email.trim(),{redirectTo:location.origin+location.pathname});
  alert(error?'Kunne ikke sende nulstillingsmail: '+error.message:'Du får en e-mail med et link til at oprette din adgangskode. Linket bruges kun denne ene gang.');
 };
-window.addEventListener('load',()=>state.client?.auth.onAuthStateChange((event)=>{
- if(event!=='PASSWORD_RECOVERY')return;
- setTimeout(async()=>{
-  const password=prompt('Vælg en ny adgangskode (mindst 8 tegn):');
-  if(!password)return;
-  if(password.length<8){alert('Adgangskoden skal være mindst 8 tegn.');return}
-  const {error}=await state.client.auth.updateUser({password});
-  alert(error?'Kunne ikke gemme adgangskoden: '+error.message:'Din adgangskode er oprettet. Fremover logger du ind med e-mail og kode.');
- },0);
-}));
 document.getElementById('cloud-logout').onclick=async()=>{await state.client?.auth.signOut();state.ready=false;sharing=false;shareButtons();setStatus('Logget ud');};
 document.getElementById('cloud-refresh').onclick=async()=>{if(!confirm('Hent cloud-data. Ikke-synkroniserede lokale ændringer kan blive overskrevet. Fortsæt?'))return;try{await pull()}catch(e){setStatus('Hentning fejlede: '+e.message)}};
 init();
