@@ -2,8 +2,8 @@
 // Anon/publishable key er offentlig; brug ALDRIG service_role/secret key her.
 (function(){
 const box=document.createElement('section');box.style.cssText='border:1px solid #455649;background:#1d2921;padding:17px;border-radius:12px;margin:20px 0';
-box.innerHTML='<strong>☁️ Synkronisering</strong><p id="cloud-status">Ikke forbundet. Dine vine gemmes lokalt.</p><div class="utility"><button id="cloud-setup">Opsæt cloud</button><button id="cloud-mobile-link" hidden>Kopiér mobilopsætning</button><button id="cloud-login" hidden>Log ind med e-mail og kode</button><button id="cloud-magic" hidden>Send login-link via e-mail</button><button id="cloud-reset" hidden>Opret / nulstil adgangskode</button><button id="cloud-logout" hidden>Log ud</button><button id="cloud-refresh" hidden>Hent fra cloud</button></div>';
-document.querySelector('.stats').before(box);box.insertAdjacentHTML('beforeend','<small style="display:block;margin-top:8px;color:#a4b1a5">App-version: 2026-10-28.7</small>');
+box.innerHTML='<strong>☁️ Synkronisering</strong><p id="cloud-status">Ikke forbundet. Dine vine gemmes lokalt.</p><div class="utility"><button id="cloud-setup">Opsæt cloud</button><button id="cloud-mobile-link" hidden>Kopiér mobilopsætning</button><button id="cloud-login" hidden>Log ind med e-mail og kode</button><button id="cloud-magic" hidden>Send login-link via e-mail</button><button id="cloud-reset" hidden>Opret / nulstil adgangskode</button><button id="cloud-password" hidden>Opret adgangskode</button><button id="cloud-logout" hidden>Log ud</button><button id="cloud-refresh" hidden>Hent fra cloud</button></div>';
+document.querySelector('.stats').before(box);box.insertAdjacentHTML('beforeend','<small style="display:block;margin-top:8px;color:#a4b1a5">App-version: 2026-10-28.8</small>');
 const status=document.getElementById('cloud-status');
 const state={client:null,user:null,ready:false,busy:false,queued:false,last:new Map()};
 const key='vin-supabase-settings';
@@ -48,7 +48,7 @@ await load();state.client=window.supabase.createClient(c.url,c.anon);state.clien
 const authButtons=()=>{
  const loggedIn=!!state.user;
  for(const id of ['cloud-login','cloud-magic','cloud-reset'])document.getElementById(id).hidden=loggedIn;
- for(const id of ['cloud-logout','cloud-refresh'])document.getElementById(id).hidden=!loggedIn;
+ for(const id of ['cloud-password','cloud-logout','cloud-refresh'])document.getElementById(id).hidden=!loggedIn;
 };
 state.client.auth.onAuthStateChange((event,session)=>{
  // INITIAL_SESSION kan være tom under udveksling af magic-link-kode.
@@ -188,7 +188,7 @@ document.getElementById('cloud-login').onclick=async()=>{
  if(!password){alert('Indtast din adgangskode.');return}
  const {data,error}=await state.client.auth.signInWithPassword({email:email.trim(),password});
  if(error){alert('Login mislykkedes: '+error.message+'\\nHvis du tidligere brugte login-link, skal du først oprette en adgangskode via Supabase Authentication → Users eller en nulstilling af adgangskoden.');return}
- if(data?.user){state.user=data.user;document.getElementById('cloud-login').hidden=true;document.getElementById('cloud-reset').hidden=true;document.getElementById('cloud-magic').hidden=true;document.getElementById('cloud-logout').hidden=false;document.getElementById('cloud-refresh').hidden=false;try{await pull(true)}catch(e){setStatus('Cloud-fejl: '+e.message)}}
+ if(data?.user){state.user=data.user;document.getElementById('cloud-login').hidden=true;document.getElementById('cloud-reset').hidden=true;document.getElementById('cloud-magic').hidden=true;document.getElementById('cloud-password').hidden=false;document.getElementById('cloud-logout').hidden=false;document.getElementById('cloud-refresh').hidden=false;try{await pull(true)}catch(e){setStatus('Cloud-fejl: '+e.message)}}
 };
 document.getElementById('cloud-magic').onclick=async()=>{
  const email=prompt('E-mailadressen på din eksisterende vinkælder-konto:');
@@ -198,6 +198,32 @@ document.getElementById('cloud-magic').onclick=async()=>{
   if(error)throw error;
   alert('Tjek din e-mail for et login-link. Hvis linket sender dig tilbage til Netlify, skal GitHub Pages-adressen tilføjes under Supabase Authentication → URL Configuration → Redirect URLs.');
  }catch(e){alert('Kunne ikke sende login-link: '+e.message)}
+};
+// Den allerede indloggede ejer kan oprette adgangskode uden at sende en ny mail.
+const passwordDialog=document.createElement('dialog');
+passwordDialog.setAttribute('aria-label','Opret adgangskode');
+passwordDialog.innerHTML='<form method="dialog" style="display:grid;gap:12px;padding:24px;min-width:min(330px,85vw);color:#fff"><strong>Opret adgangskode til vinkælderen</strong><label>Ny adgangskode (mindst 12 tegn)<input id="cloud-new-password" type="password" minlength="12" autocomplete="new-password" required style="display:block;width:100%;margin-top:5px"></label><label>Gentag adgangskoden<input id="cloud-confirm-password" type="password" minlength="12" autocomplete="new-password" required style="display:block;width:100%;margin-top:5px"></label><div style="display:flex;gap:8px"><button value="cancel" type="submit" formnovalidate>Annuller</button><button id="cloud-save-password" value="save" type="button">Gem adgangskode</button></div><p id="cloud-password-error" role="alert" style="margin:0;color:#f4b8b8"></p></form>';
+document.body.append(passwordDialog);
+document.getElementById('cloud-password').onclick=()=>{
+ if(!state.user){alert('Log ind på computeren først.');return}
+ passwordDialog.querySelector('form').reset();
+ document.getElementById('cloud-password-error').textContent='';
+ passwordDialog.showModal();
+};
+document.getElementById('cloud-save-password').onclick=async()=>{
+ const first=document.getElementById('cloud-new-password');
+ const second=document.getElementById('cloud-confirm-password');
+ const errorBox=document.getElementById('cloud-password-error');
+ if(first.value.length<12){errorBox.textContent='Brug mindst 12 tegn.';return}
+ if(first.value!==second.value){errorBox.textContent='Adgangskoderne er forskellige.';return}
+ const btn=document.getElementById('cloud-save-password');btn.disabled=true;
+ try{
+  const {error}=await state.client.auth.updateUser({password:first.value});
+  if(error)throw error;
+  passwordDialog.close();first.value='';second.value='';
+  notify('Adgangskode gemt. Du kan nu logge ind på mobilen med e-mail og adgangskode.');
+ }catch(e){errorBox.textContent='Kunne ikke gemme adgangskode: '+e.message}
+ finally{btn.disabled=false}
 };
 document.getElementById('cloud-reset').onclick=async()=>{
  const email=prompt('E-mailadressen på din eksisterende vinkælder-konto:');
