@@ -39,7 +39,7 @@ window.updateCloudStatus=text=>{
 };
 e('sample').hidden=true; // Demoindhold hører ikke til i ejerens produktionssamling.
 e('sample').disabled=true;
-document.querySelector('header .sub:last-child').textContent='VERSION 2.0 · BUILD 28.23';
+document.querySelector('header .sub:last-child').textContent='VERSION 2.0 · BUILD 28.24';
 const number=x=>Number.isFinite(Number(x))&&x!==null&&x!==undefined&&x!==''?Number(x):null;
 function score(w){
  const own=number(w.rating);if(own!==null)return {value:own,label:'Din vurdering',details:''};
@@ -78,7 +78,20 @@ window.render=function(){
    w.name,w.producer,w.country,w.region,w.type,String(w.year??'')
  ].join(' ').toLocaleLowerCase('da').includes(query));
  const stable=(a,b)=>(String(a.producer)+' '+String(a.name)).localeCompare(String(b.producer)+' '+String(b.name),'da');
- visible.sort((a,b)=>sort==='year'?(Number(b.year)||0)-(Number(a.year)||0)||stable(a,b):sort==='rating'?(score(b)?.value??-1)-(score(a)?.value??-1)||stable(a,b):sort==='count'?count(b)-count(a)||stable(a,b):stable(a,b));
+ const typeOrder=['Rødvin','Hvidvin','Champagne','Mousserende','Rosé','Dessertvin','Andet'];
+ const categoryRank=w=>{const rank=typeOrder.indexOf(w.type);return rank<0?typeOrder.length:rank};
+ visible.sort((a,b)=>{
+  // Hold typer samlet i "Alle". I en enkelt kategori vises pointgivne vine øverst.
+  const byType=category==='all'?categoryRank(a)-categoryRank(b):0;
+  if(byType)return byType;
+  const sa=score(a),sb=score(b);
+  if(Boolean(sa)!==Boolean(sb))return sb?1:-1;
+  // Dokumenterede vurderinger sorteres altid højest først inden for samme kategori.
+  if(sa&&sb&&sa.value!==sb.value)return sb.value-sa.value;
+  if(sort==='year')return (Number(b.year)||0)-(Number(a.year)||0)||stable(a,b);
+  if(sort==='count')return count(b)-count(a)||stable(a,b);
+  return stable(a,b);
+ });
  e('bottles').textContent=wines.reduce((n,w)=>n+count(w),0);
  e('unique').textContent=wines.length;
  e('ready').textContent=wines.filter(w=>status(w)==='ready').reduce((n,w)=>n+count(w),0);
