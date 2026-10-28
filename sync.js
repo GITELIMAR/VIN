@@ -185,9 +185,10 @@ window.importChatWines=async incoming=>{
    return {id,user_id:state.user.id,data:{...w,id},updated_at:new Date().toISOString()};
   });
   setStatus('Importerer '+rows.length+' vine til cloud…');
-  const {error:insertError}=await state.client.from('wines').insert(rows);
+  const {data:inserted,error:insertError}=await state.client.from('wines').insert(rows).select('id,updated_at');
   if(insertError)throw insertError;
-  for(const row of rows){wines.push(row.data);state.last.set(row.id,JSON.stringify(row.data))}
+  for(const row of rows){wines.push(row.data);state.last.set(row.id,wineSignature(row.data))}
+  for(const row of inserted||[])state.versions.set(row.id,row.updated_at);
   localStorage.setItem(KEY,JSON.stringify(wines));
   render();setStatus('Cloud synkroniseret · '+wines.length+' vine');
   if(sharing){try{await publishSnapshot()}catch(e){setStatus('Import gemt privat; offentlig visning blev ikke opdateret: '+e.message)}}
