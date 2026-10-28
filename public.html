@@ -1,0 +1,28 @@
+<!doctype html><html lang="da"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="referrer" content="no-referrer"><meta name="theme-color" content="#171d1a"><title>Vinkælder · Offentlig oversigt</title>
+<style>
+:root{font:16px system-ui,-apple-system,Segoe UI,sans-serif;color:#f1efeb;background:#111713}*{box-sizing:border-box}body{margin:0}header{padding:23px 6vw;background:#1b241e;border-bottom:1px solid #344037;display:flex;justify-content:space-between;align-items:center;gap:16px}header strong{font:30px Georgia,serif;color:#d6b67c}a{color:#dec68d}main{max-width:1160px;padding:28px 19px 70px;margin:auto}h1{font:40px Georgia,serif;font-weight:normal;margin:0 0 10px}p,.sub{color:#a4b2a5}.stats{display:flex;gap:15px;flex-wrap:wrap;margin:26px 0}.stat{border:1px solid #354c39;padding:16px;border-radius:13px;min-width:170px;background:#1e2a22}.stat b{display:block;color:#e6d5ab;font:31px Georgia,serif;font-weight:normal}.stat span{font-size:12px;color:#aebbaa}.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin:20px 0}.toolbar input,.toolbar select{color:#fff;background:#1e2922;border:1px solid #455649;border-radius:9px;padding:12px;font:inherit}.toolbar input{flex:1;min-width:170px}.items{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:15px}.wine{background:#1c2720;border:1px solid #39493d;border-radius:14px;padding:19px;border-top:7px solid #a98a58}.wine h2{font:25px Georgia,serif;font-weight:normal;margin:12px 0 5px}.region{color:#c8ae76;text-transform:uppercase;font-size:12px;letter-spacing:1px}.meta{font-size:13px;color:#b1bdb3;margin-top:7px}.chip{display:inline-block;border-radius:18px;background:#304234;color:#e0e8d9;padding:7px 11px;margin:12px 5px 2px 0;font-size:12px}.empty{padding:35px;border:1px dashed #4a5e4c;border-radius:12px;color:#bac9b8}footer{font-size:12px;color:#aab8aa;margin-top:26px}
+</style></head><body><header><strong>Min Vinkælder</strong><span class="sub">Offentlig oversigt · Kun læsning</span></header><main><h1>Vinsamlingen</h1><p>Se vine, drikkevinduer og anmeldelser. Kun ejeren kan ændre indholdet.</p>
+<section class="stats"><div class="stat"><b id="bottles">–</b><span>Flasker</span></div><div class="stat"><b id="types">–</b><span>Forskellige vine</span></div></section>
+<div class="toolbar"><input id="query" placeholder="Søg producent, vin, land…" aria-label="Søg i samlingen"><select id="filter" aria-label="Filtrer vintype"><option value="">Alle vintyper</option><option>Champagne</option><option>Rødvin</option><option>Hvidvin</option><option>Dessertvin</option><option>Mousserende</option><option>Rosé</option><option>Andet</option></select></div>
+<div id="message" class="sub">Henter samlingen…</div><section id="items" class="items"></section><footer>Drikkevinduer er vejledende skøn. Anmelderpoint og egne kvalitetsestimater holdes adskilt. Denne side giver ingen mulighed for redigering.</footer></main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const h=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let wines=[];
+function status(w){const y=new Date().getFullYear();return w.from&&y<w.from?'Gem':w.to&&y>w.to?'Efter drikkevindue':w.from||w.to?'Drik nu':'Ikke vurderet'}
+function render(){const q=$('query').value.toLocaleLowerCase('da'),type=$('filter').value;
+const visible=wines.filter(w=>(!type||w.type===type)&&[w.name,w.producer,w.country,w.region,String(w.year||'')].join(' ').toLocaleLowerCase('da').includes(q));
+$('items').innerHTML=visible.length?visible.map(w=>`<article class="wine"><div class="region">${h(w.region||w.country||w.type)}</div><h2>${h(w.producer)}</h2><div>${h(w.name)} ${w.year?'· '+h(w.year):'· NV'}</div><div class="meta">${h(w.type)} ${w.country?'· '+h(w.country):''}</div><span class="chip">${Number(w.count)||0} flasker</span><span class="chip">${status(w)}</span><div class="meta">Drikkevindue: ${h(w.from??'—')} – ${h(w.to??'—')}</div>${w.critic?`<div class="meta">${h(w.critic.kind==='anmeldelse'?'Anmelderpoint':'Kvalitetsestimat')}: ${h(w.critic.score??(w.critic.low+'–'+w.critic.high))}/100 · ${h(w.critic.source)}</div>`:''}</article>`).join(''):'<div class="empty">Ingen vine matcher søgningen.</div>'}
+$('query').oninput=render;$('filter').onchange=render;
+(async()=>{try{const p=new URLSearchParams(location.hash.slice(1));const url=p.get('url'),key=p.get('key'),owner=p.get('owner');
+if(!url||!key||!owner||!/^https:\/\/[a-zA-Z0-9.-]+\.supabase\.co$/.test(url)||!/^[0-9a-f-]{36}$/i.test(owner))throw Error('Offentligt link er ikke konfigureret.');
+if(!window.supabase)throw Error('Databiblioteket kunne ikke indlæses.');
+const client=window.supabase.createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
+const {data,error}=await client.from('public_wines').select('data').eq('owner_id',owner).limit(10000);
+if(error)throw error;
+wines=(data||[]).map(x=>x.data).sort((a,b)=>String(a.producer).localeCompare(String(b.producer),'da'));
+$('bottles').textContent=wines.reduce((n,w)=>n+(Number(w.count)||0),0);$('types').textContent=wines.length;$('message').textContent=wines.length?'':'Der er endnu ikke offentliggjort nogen vine.';render();
+}catch(err){$('message').textContent='Kunne ikke hente den offentlige samling: '+err.message}})();
+</script></body></html>
