@@ -30,7 +30,11 @@ const localIds=new Set(local.map(x=>x.id));const onlyLocal=local.filter(x=>!remo
 if(onlyLocal.length&&confirm('Der er '+onlyLocal.length+' lokale vine, som ikke er i cloud. Vil du tilføje dem til din cloud-samling?')){
 const {error:mergeError}=await state.client.from('wines').upsert(onlyLocal.map(w=>({id:w.id,user_id:state.user.id,data:w})),{onConflict:'id'});if(mergeError)throw mergeError;resulting=[...remote,...onlyLocal];
 }}
-wines=resulting;localStorage.setItem(KEY,JSON.stringify(wines));render();state.last=new Map(wines.map(w=>[w.id,JSON.stringify(w)]));state.ready=true;setStatus('Cloud synkroniseret · '+wines.length+' vine');window.importPhotoExamplesOnce?.();
+wines=resulting;localStorage.setItem(KEY,JSON.stringify(wines));render();state.last=new Map(wines.map(w=>[w.id,JSON.stringify(w)]));state.ready=true;setStatus('Cloud synkroniseret · '+wines.length+' vine');
+const {data:shared,error:shareError}=await state.client.from('public_wines').select('id').eq('owner_id',state.user.id).limit(1);
+if(!shareError){sharing=!!shared?.length||localStorage.getItem(shareKey())==='yes';}
+shareButtons();
+window.importPhotoExamplesOnce?.();
 }
 let running=Promise.resolve();
 async function pushChanges(){if(!state.ready||!state.user)return;
@@ -42,8 +46,57 @@ setStatus('Gemmer ændringer i cloud…');
 if(changed.length){const {error}=await state.client.from('wines').upsert(changed.map(w=>({id:w.id,user_id:state.user.id,data:w,updated_at:new Date().toISOString()})),{onConflict:'id'});if(error)throw error}
 if(removed.length){const {error}=await state.client.from('wines').delete().eq('user_id',state.user.id).in('id',removed);if(error)throw error}
 state.last=current;setStatus('Cloud synkroniseret');
+if(sharing){try{await publishSnapshot()}catch(e){setStatus('Private vine gemt, men offentlig visning er ikke opdateret: '+e.message)}}
 }
 window.queueCloudSync=()=>{if(!state.ready)return;running=running.then(()=>pushChanges()).catch(e=>setStatus('Cloud-fejl: '+e.message+' – eksportér backup, og prøv igen.'))};
+// Den offentlige samling er en separat, eksplicit offentliggjort kopi.
+// Kun whitelistede vinfelter offentliggøres; private smagsnoter og smagedatoer deles ikke.
+const shareUi=document.createElement('div');
+shareUi.className='utility';shareUi.style.marginTop='12px';
+shareUi.innerHTML='<button id="share-on">Gør min samling offentlig</button><button id="share-link" hidden>Kopiér offentligt link</button><button id="share-off" hidden>Stop offentlig visning</button>';
+box.append(shareUi);
+let sharing=false;
+const shareKey=()=>state.user?'vin-sharing-'+state.user.id:'';
+const shareButtons=()=>{const active=!!state.user&&state.ready;document.getElementById('share-on').hidden=!active||sharing;document.getElementById('share-link').hidden=!active||!sharing;document.getElementById('share-off').hidden=!active||!sharing;};
+const publicData=w=>({
+ producer:w.producer,name:w.name,year:w.year,type:w.type,country:w.country,
+ region:w.region,count:w.count,from:w.from,to:w.to,
+ critic:w.critic?{kind:w.critic.kind,source:w.critic.source,score:w.critic.score,low:w.critic.low,high:w.critic.high}:null
+});
+async function publishSnapshot(){
+ if(!state.user||!state.ready)return;
+ const owner=state.user.id;
+ const {data:existing,error:e1}=await state.client.from('public_wines').select('id').eq('owner_id',owner).limit(10000);
+ if(e1)throw e1;
+ const ids=new Set(wines.map(w=>w.id));
+ const removed=(existing||[]).map(w=>w.id).filter(id=>!ids.has(id));
+ if(wines.length){
+  const {error:e2}=await state.client.from('public_wines').upsert(wines.map(w=>({owner_id:owner,id:w.id,data:publicData(w)})),{onConflict:'owner_id,id'});
+  if(e2)throw e2;
+ }
+ if(removed.length){const {error:e3}=await state.client.from('public_wines').delete().eq('owner_id',owner).in('id',removed);if(e3)throw e3}
+}
+const makeShareUrl=()=>{
+ const c=cfg();const hash=new URLSearchParams({url:c.url,key:c.anon,owner:state.user.id});
+ return location.origin+'/public.html#'+hash.toString();
+};
+document.getElementById('share-on').onclick=async()=>{
+ if(!state.user||!state.ready)return;
+ if(!confirm('Vil du offentliggøre vinens navn, producent, årgang, antal flasker, drikkevindue og eventuelle anmelderpoint? Private noter deles ikke.'))return;
+ try{await publishSnapshot();sharing=true;localStorage.setItem(shareKey(),'yes');shareButtons();
+ const link=makeShareUrl();await navigator.clipboard.writeText(link).catch(()=>{prompt('Kopiér dit offentlige link:',link)});
+ notify('Offentlig visning aktiveret · link kopieret');
+ }catch(e){alert('Offentliggørelse mislykkedes: '+e.message)}
+};
+document.getElementById('share-link').onclick=async()=>{
+ const link=makeShareUrl();await navigator.clipboard.writeText(link).catch(()=>{prompt('Kopiér dit offentlige link:',link)});notify('Offentligt link kopieret');
+};
+document.getElementById('share-off').onclick=async()=>{
+ if(!confirm('Fjern alle offentliggjorte flasker? Din private samling bevares.'))return;
+ try{const {error}=await state.client.from('public_wines').delete().eq('owner_id',state.user.id);if(error)throw error;
+ sharing=false;localStorage.removeItem(shareKey());shareButtons();notify('Offentlig visning slået fra');
+ }catch(e){alert('Kunne ikke stoppe offentlig deling: '+e.message)}
+};
 document.getElementById('cloud-setup').onclick=async()=>{
 const old=cfg();const url=prompt('Supabase Project URL (https://xxxxx.supabase.co)',old?.url||'');if(url===null)return;
 const anon=prompt('Supabase publishable/anon key (ALDRIG secret/service_role)',old?.anon||'');if(anon===null)return;
@@ -51,7 +104,7 @@ if(!/^https:\/\/[\w.-]+\.supabase\.co\/?$/.test(url.trim())||!anon.trim()||/serv
 localStorage.setItem(key,JSON.stringify({url:url.trim().replace(/\/$/,''),anon:anon.trim()}));location.reload()
 };
 document.getElementById('cloud-login').onclick=async()=>{const email=prompt('Din e-mail til login-link:');if(!email)return;const {error}=await state.client.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}});alert(error?'Loginfejl: '+error.message:'Tjek din e-mail og åbn login-linket på denne enhed.')};
-document.getElementById('cloud-logout').onclick=async()=>{await state.client?.auth.signOut();state.ready=false;setStatus('Logget ud');};
+document.getElementById('cloud-logout').onclick=async()=>{await state.client?.auth.signOut();state.ready=false;sharing=false;shareButtons();setStatus('Logget ud');};
 document.getElementById('cloud-refresh').onclick=async()=>{if(!confirm('Hent cloud-data. Ikke-synkroniserede lokale ændringer kan blive overskrevet. Fortsæt?'))return;try{await pull()}catch(e){setStatus('Hentning fejlede: '+e.message)}};
 init();
 })();
