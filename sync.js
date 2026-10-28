@@ -3,7 +3,7 @@
 (function(){
 const box=document.createElement('section');box.style.cssText='border:1px solid #455649;background:#1d2921;padding:17px;border-radius:12px;margin:20px 0';
 box.innerHTML='<strong>☁️ Synkronisering</strong><p id="cloud-status">Ikke forbundet. Dine vine gemmes lokalt.</p><div class="utility"><button id="cloud-setup">Opsæt cloud</button><button id="cloud-mobile-link" hidden>Kopiér mobilopsætning</button><button id="cloud-login" hidden>Log ind med e-mail og kode</button><button id="cloud-magic" hidden>Send login-link via e-mail</button><button id="cloud-reset" hidden>Opret / nulstil adgangskode</button><button id="cloud-password" hidden>Opret adgangskode</button><button id="cloud-logout" hidden>Log ud</button><button id="cloud-refresh" hidden>Hent fra cloud</button></div>';
-document.querySelector('.stats').before(box);box.insertAdjacentHTML('beforeend','<small style="display:block;margin-top:8px;color:#a4b1a5">App-version: 2026-10-28.10</small>');
+document.querySelector('.stats').before(box);box.insertAdjacentHTML('beforeend','<small style="display:block;margin-top:8px;color:#a4b1a5">App-version: 2026-10-28.11</small>');
 const status=document.getElementById('cloud-status');
 const state={client:null,user:null,ready:false,busy:false,queued:false,last:new Map()};
 const key='vin-supabase-settings';
@@ -77,18 +77,9 @@ else{
 }catch(e){setStatus('Opsætningsfejl: '+e.message)}}
 async function pull(initial=false){if(!state.client||!state.user)return;state.ready=false;
 const {data,error}=await state.client.from('wines').select('id,data').eq('user_id',state.user.id).limit(10000);if(error)throw error;
-const remote=data.map(r=>r.data);const local=wines.slice();let resulting=remote;
-if(initial&&local.length&&remote.length===0){
-if(confirm('Cloud er tom. Upload dine '+local.length+' lokale vine til din konto?')){
-const rows=local.map(w=>({id:w.id,user_id:state.user.id,data:w}));
-const {error:upErr}=await state.client.from('wines').upsert(rows,{onConflict:'id'});if(upErr)throw upErr;
-resulting=local;
-}else{setStatus('Cloud er tom. Lokale vine er bevaret; log ud eller tag backup før cloudimport.');return}
-}else if(initial&&local.length&&remote.length){
-const localIds=new Set(local.map(x=>x.id));const onlyLocal=local.filter(x=>!remote.some(y=>y.id===x.id));
-if(onlyLocal.length&&confirm('Der er '+onlyLocal.length+' lokale vine, som ikke er i cloud. Vil du tilføje dem til din cloud-samling?')){
-const {error:mergeError}=await state.client.from('wines').upsert(onlyLocal.map(w=>({id:w.id,user_id:state.user.id,data:w})),{onConflict:'id'});if(mergeError)throw mergeError;resulting=[...remote,...onlyLocal];
-}}
+// Cloud er autoritativ efter login. Gamle lokale poster må aldrig genoprette slettede vine.
+const remote=data.map(r=>r.data);
+const resulting=remote;
 wines=resulting;localStorage.setItem(KEY,JSON.stringify(wines));render();state.last=new Map(wines.map(w=>[w.id,JSON.stringify(w)]));state.ready=true;setStatus('Cloud synkroniseret · '+wines.length+' vine');
 const {data:shared,error:shareError}=await state.client.from('public_wines').select('id').eq('owner_id',state.user.id).limit(1);
 if(!shareError){sharing=!!shared?.length||localStorage.getItem(shareKey())==='yes';}
