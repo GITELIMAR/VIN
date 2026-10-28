@@ -59,7 +59,7 @@ function enrichExisting(){
   .split('Kontrollér producent, cuvée og årgang. · ').join('')
   .split('kontrollér producent, cuvée og årgang.').join('')
   .split('Kontrollér producent, cuvée og årgang.').join('')
-  .replace(/^(\\s*·\\s*)+|(\\s*·\\s*)+$/g,'').trim();
+  .replace(/^(\s*·\s*)+|(\s*·\s*)+$/g,'').trim();
  if(cleaned!==w.notes){w.notes=cleaned;updated++;}
 }
 
