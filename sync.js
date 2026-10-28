@@ -3,7 +3,7 @@
 (function(){
 const box=document.createElement('section');box.style.cssText='border:1px solid #455649;background:#1d2921;padding:17px;border-radius:12px;margin:20px 0';
 box.innerHTML='<strong>☁️ Synkronisering</strong><p id="cloud-status">Ikke forbundet. Dine vine gemmes lokalt.</p><div class="utility"><button id="cloud-setup">Opsæt cloud</button><button id="cloud-mobile-link" hidden>Kopiér mobilopsætning</button><button id="cloud-login" hidden>Log ind med e-mail og kode</button><button id="cloud-magic" hidden>Send login-link via e-mail</button><button id="cloud-reset" hidden>Opret / nulstil adgangskode</button><button id="cloud-password" hidden>Opret adgangskode</button><button id="cloud-logout" hidden>Log ud</button><button id="cloud-refresh" hidden>Hent fra cloud</button></div>';
-document.querySelector('.stats').before(box);box.insertAdjacentHTML('beforeend','<small style="display:block;margin-top:8px;color:#a4b1a5">App-version: 2026-10-28.13</small>');
+document.querySelector('.stats').before(box);box.insertAdjacentHTML('beforeend','<small style="display:block;margin-top:8px;color:#a4b1a5">App-version: 2026-10-28.14</small>');
 const status=document.getElementById('cloud-status');
 const state={client:null,user:null,ready:false,busy:false,queued:false,last:new Map()};
 const key='vin-supabase-settings';
@@ -134,6 +134,35 @@ window.deleteWineFromCloud=async(id)=>{
  return deleting;
 };
 
+
+// Import fra chat: brugerbekræftet, kun cloud-login og INSERT, aldrig UPSERT.
+window.importChatWines=async incoming=>{
+ if(!state.client||!state.user||!state.ready)throw Error('Log ind, og kontrollér at Cloud synkroniseret vises.');
+ if(!Array.isArray(incoming)||!incoming.length||incoming.length>50)throw Error('Vælg 1–50 vine ad gangen.');
+ const work=running.catch(()=>{}).then(async()=>{
+  const {data,error}=await state.client.from('wines').select('id,data').eq('user_id',state.user.id).limit(10000);
+  if(error)throw error;
+  const normalized=x=>[x.producer,x.name,x.year??'NV',x.size??'750ml'].map(v=>String(v??'').normalize('NFC').trim().toLocaleLowerCase('da')).join('|');
+  const seen=new Set((data||[]).map(x=>normalized(x.data)));
+  const unique=[];
+  for(const w of incoming){const k=normalized(w);if(seen.has(k))continue;seen.add(k);unique.push(w)}
+  if(!unique.length)return {added:0,skipped:incoming.length};
+  const rows=unique.map(w=>{
+   const id=crypto.randomUUID();
+   return {id,user_id:state.user.id,data:{...w,id},updated_at:new Date().toISOString()};
+  });
+  setStatus('Importerer '+rows.length+' vine til cloud…');
+  const {error:insertError}=await state.client.from('wines').insert(rows);
+  if(insertError)throw insertError;
+  for(const row of rows){wines.push(row.data);state.last.set(row.id,JSON.stringify(row.data))}
+  localStorage.setItem(KEY,JSON.stringify(wines));
+  render();setStatus('Cloud synkroniseret · '+wines.length+' vine');
+  if(sharing){try{await publishSnapshot()}catch(e){setStatus('Import gemt privat; offentlig visning blev ikke opdateret: '+e.message)}}
+  return {added:rows.length,skipped:incoming.length-rows.length};
+ });
+ running=work.catch(e=>{setStatus('Import-fejl: '+e.message)});
+ return work;
+};
 // Den offentlige samling er en separat, eksplicit offentliggjort kopi.
 // Kun whitelistede vinfelter offentliggøres; private smagsnoter og smagedatoer deles ikke.
 const shareUi=document.createElement('div');
