@@ -111,7 +111,7 @@ async function publishSnapshot(){
 }
 const makeShareUrl=()=>{
  const c=cfg();const hash=new URLSearchParams({url:c.url,key:c.anon,owner:state.user.id});
- return location.origin+'/public.html#'+hash.toString();
+ return new URL('public.html',location.href).href+'#'+hash.toString();
 };
 document.getElementById('share-on').onclick=async()=>{
  if(!state.user||!state.ready)return;
