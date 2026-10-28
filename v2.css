@@ -1,0 +1,56 @@
+/* Min Vinkælder 2.0 – separat præsentationslag, ingen ændring i lagrede vine */
+:root{--gold:#d5b57a;--panel:#19251e;--edge:#394c3c}
+body{background:radial-gradient(ellipse 85% 400px at 50% -90px,#2a3c2e 0,transparent 72%),#101612}
+header{background:#17211b;position:relative}
+header .sub:last-child{font-size:11px;letter-spacing:.05em}
+main{max-width:1160px}
+.top{padding:8px 0 2px}.top h1{font-size:clamp(36px,6vw,60px);letter-spacing:-.035em}
+.top p{max-width:550px;line-height:1.6}
+.stats{gap:10px;margin:22px 0 27px}.stat{padding:17px 18px;border-color:var(--edge);background:linear-gradient(145deg,#213127,#1b2720);min-height:94px}
+.stat strong{font-size:30px}.stat span{line-height:1.4}
+#v2-cloud-indicator{display:inline-flex;align-items:center;gap:7px;margin-top:10px;font-size:12px;color:#d0d9cb}
+#v2-cloud-dot{height:7px;width:7px;border-radius:50%;background:#a9ab7b;display:inline-block}
+.v2-section-title{display:flex;justify-content:space-between;gap:12px;align-items:baseline;margin:30px 0 13px}
+.v2-section-title h2{font-family:Georgia,serif;font-size:26px;font-weight:400;margin:0}
+.v2-section-title p{font-size:13px;margin:0}
+.v2-filter-wrap{margin:28px 0 8px}
+.v2-filter-wrap h2{font-family:Georgia,serif;font-weight:400;font-size:23px;margin:0 0 12px}
+.v2-filter-buttons{display:flex;gap:8px;flex-wrap:wrap}
+.v2-filter-buttons button{font-size:13px;border:1px solid #465949;background:#1a2920;border-radius:30px;color:#cdd7cc;padding:9px 14px;transition:background .15s}
+.v2-filter-buttons button[aria-pressed="true"]{background:#c7aa75;color:#142018;border-color:#c7aa75;font-weight:700}
+.v2-filter-buttons button:focus-visible,.actions button:focus-visible{outline:2px solid #efdaa6;outline-offset:3px}
+.v2-soon-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.v2-soon{border:1px solid #655741;background:linear-gradient(135deg,#302b21,#1f2820);padding:15px;border-radius:12px;min-width:0}
+.v2-soon strong{display:block;font-family:Georgia,serif;font-weight:400;font-size:18px;line-height:1.3}
+.v2-soon .meta{margin:6px 0 12px}.v2-soon .year{color:#e9cf92;font-size:13px}
+.v2-muted{font-size:13px;color:#97a99b}
+.toolbar{margin-top:16px}.toolbar input,.toolbar select{border-radius:10px;background:#1b2920}
+.items{grid-template-columns:repeat(auto-fill,minmax(265px,1fr));gap:13px}
+.wine{border-color:#3a4e3e;background:linear-gradient(145deg,#1e2c23,#18231c);box-shadow:0 10px 24px #0002}
+.wine-head{height:5px}.wine-body{padding:18px}
+.v2-wine-top{display:flex;align-items:flex-start;gap:14px}
+.v2-bottle{flex:0 0 42px;height:110px;position:relative;display:flex;align-items:end;justify-content:center;padding-bottom:12px}
+.v2-bottle:before{content:"";position:absolute;width:26px;height:75px;bottom:0;border:1px solid #6a806b;background:linear-gradient(90deg,#253528,#516246 48%,#263629);border-radius:8px 8px 5px 5px}
+.v2-bottle:after{content:"";position:absolute;width:13px;height:29px;top:6px;background:linear-gradient(90deg,#455848,#2c4031);border-radius:3px 3px 0 0;border:1px solid #71816d}
+.v2-bottle span{z-index:1;font-size:9px;color:#413b2a;background:#dfcba2;padding:6px 2px;border-radius:1px;transform:translateY(-12px);min-width:26px;text-align:center}
+.v2-bottle.white:before{background:linear-gradient(90deg,#606747,#b0b47b 50%,#536447)}
+.v2-bottle.sparkling:before{background:linear-gradient(90deg,#282e29,#777b60 50%,#222c28)}
+.v2-wine-info{min-width:0;flex:1}
+.v2-wine-info .region{margin:3px 0 7px}
+.v2-wine-info h2{font-size:21px;margin:0 0 6px}
+.v2-wine-info .v2-name{font-size:14px;line-height:1.45;color:#f0ebdf}
+.v2-wine-info .meta{margin-top:6px}
+.v2-rating{border:1px solid #736447;background:#302e23;color:#f0dbad;border-radius:8px;padding:9px 10px;margin:12px 0;font-size:12px}
+.v2-rating strong{font-size:17px;margin-right:7px}
+.v2-rating small{display:block;color:#b9b39f;margin-top:4px;line-height:1.5}
+.v2-details{border-top:1px solid #354b3a;margin-top:12px;padding-top:10px}
+.v2-details summary{cursor:pointer;font-size:12px;color:#d0c19c;padding:5px 0}
+.v2-details p{color:#c1cabb;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.5}
+.v2-details a{color:#e7d3a7}
+.wine .chips{margin:13px 0 8px}
+.actions{border-top:1px solid #324638;padding-top:12px;margin-top:12px}
+.actions button{flex:1;white-space:nowrap}
+#v2-list-count{font-size:12px;color:#a7b6aa}
+.footer{line-height:1.6}
+@media(max-width:760px){.v2-soon-grid{grid-template-columns:1fr}.v2-section-title{align-items:start}.v2-section-title h2{font-size:23px}}
+@media(max-width:640px){header{align-items:flex-start}header .sub:last-child{text-align:right}.stats{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.stat{padding:11px 9px;min-height:82px}.stat strong{font-size:24px}.stat span{font-size:10px}.items{grid-template-columns:1fr}.v2-filter-buttons{gap:6px}.v2-filter-buttons button{padding:8px 11px;font-size:12px}.actions button{padding:9px 8px}.v2-section-title{margin-top:24px}}
