@@ -38,7 +38,7 @@ function importOnce(){
  const test=entries.map(([producer,name,year,type],i)=>({
  id:'c85eab34-0f48-4c62-a8c2-'+String(100000000001+i),
  producer,name,year,type,country:'Frankrig',region:'Champagne',count:1,rating:null,
- from:windows[i][0],to:windows[i][1],notes:'TESTFLASKE fra foto · Anslået drikkevindue: '+windows[i][2],tasted:'',drinkWindowSource:'ChatGPT-skøn 2026',
+ from:windows[i][0],to:windows[i][1],notes:'Anslået drikkevindue: '+windows[i][2],tasted:'',drinkWindowSource:'ChatGPT-skøn 2026',
  critic:critic[i],demoPhotoBatch:batch
  })).filter(w=>!existing.has(w.id));
  try{
@@ -52,6 +52,8 @@ function importOnce(){
 function enrichExisting(){
  let updated=0;
  for(const w of wines){
+ if(typeof w.notes==='string' && w.notes.startsWith('TESTFLASKE fra foto · ')){w.notes=w.notes.slice('TESTFLASKE fra foto · '.length);updated++;}
+
  const ix=entries.findIndex(([producer,name,year])=>producer.toLowerCase()===String(w.producer).toLowerCase()&&name.toLowerCase()===String(w.name).toLowerCase()&&(year??null)===(w.year??null));
  if(ix<0)continue;
  if(!w.critic){w.critic=critic[ix];updated++}
