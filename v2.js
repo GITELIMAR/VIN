@@ -5,24 +5,12 @@
 // Ingen lokal redigering før cloud har meldt klar.
 window.cloudCanEdit=()=>false;
 const e=id=>document.getElementById(id);
-const typeButtons=[
- ['all','Alle'],['Rødvin','Rødvin'],['Hvidvin','Hvidvin'],
- ['Champagne','Champagne'],['Mousserende','Mousserende'],
- ['Dessertvin','Dessert & port'],['Rosé','Rosé']
-];
 let category='all';
-const categoryButtons=document.querySelector('#overview-panel .v2-filter-buttons');
-if(!categoryButtons)throw Error('Vintypefiltre mangler i Overblik');
-function selectCategory(value){category=value;categoryButtons.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.type===value)));render()}
-for(const [value,label] of typeButtons){
- const button=document.createElement('button');button.type='button';button.textContent=label;
- button.dataset.type=value;button.setAttribute('aria-pressed',String(value===category));
- button.onclick=()=>{selectCategory(value);const panel=e('collection-panel');panel.open=true;panel.scrollIntoView({behavior:'smooth',block:'start'})};
- categoryButtons.append(button);
-}
-const overview=e('overview-panel');overview.addEventListener('click',event=>{
- const stat=event.target.closest('button[data-overview-filter]');if(!stat)return;
- e('search').value='';e('filter').value=stat.dataset.overviewFilter||'all';
+const overview=e('overview-panel');
+function selectCategory(value){category=value;render()}
+overview.addEventListener('click',event=>{
+ const stat=event.target.closest('button[data-overview-type]');if(!stat||!overview.contains(stat))return;
+ e('search').value='';e('filter').value='all';
  selectCategory(stat.dataset.overviewType||'all');
  const panel=e('collection-panel');panel.open=true;
  panel.scrollIntoView({behavior:'smooth',block:'start'});
@@ -95,11 +83,22 @@ window.render=function(){
   if(sort==='count')return count(b)-count(a)||stable(a,b);
   return stable(a,b);
  });
- e('bottles').textContent=wines.reduce((n,w)=>n+count(w),0);
- e('unique').textContent=wines.length;
- e('ready').textContent=wines.filter(w=>status(w)==='ready').reduce((n,w)=>n+count(w),0);
- for(const [type,id] of [['Rødvin','red-count'],['Hvidvin','white-count'],['Champagne','champagne-count']]){
-  e(id).textContent=wines.filter(w=>w.type===type).reduce((n,w)=>n+count(w),0);
+ const totalBottles=wines.reduce((n,w)=>n+count(w),0);
+ e('bottles').textContent=totalBottles;
+ const byType=new Map();
+ for(const w of wines){const type=String(w.type||'Andet').trim()||'Andet';byType.set(type,(byType.get(type)||0)+count(w))}
+ const knownOrder=['Rødvin','Hvidvin','Champagne','Mousserende','Rosé','Dessertvin','Portvin','Andet'];
+ const types=[...byType].filter(([type,n])=>n>0).sort((a,b)=>{
+  const ai=knownOrder.indexOf(a[0]),bi=knownOrder.indexOf(b[0]);
+  return (ai<0?knownOrder.length:ai)-(bi<0?knownOrder.length:bi)||a[0].localeCompare(b[0],'da');
+ });
+ const overviewStats=e('overview-stats');
+ overviewStats.querySelectorAll('[data-overview-type]:not([data-overview-type="all"])').forEach(node=>node.remove());
+ for(const [type,n] of types){
+  const button=document.createElement('button');button.type='button';button.className='stat stat-nav';button.dataset.overviewType=type;button.setAttribute('aria-label','Vis '+type+' i samlingen');
+  const number=document.createElement('strong');number.textContent=n;
+  const label=document.createElement('span');label.textContent=type+' · flasker';
+  button.append(number,label);overviewStats.append(button);
  }
  e('v2-list-count').textContent=visible.length+' af '+wines.length+' vine';
  e('items').innerHTML=visible.length?visible.map(card).join(''):'<div class="empty">Ingen vine matcher filtrene. Prøv en anden kategori eller søgning.</div>';
