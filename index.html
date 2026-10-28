@@ -32,7 +32,7 @@ $('add').onclick=()=>openEditor();$('close').onclick=$('cancel').onclick=()=>$('
    try{response=await fetch(url.href,{cache:'no-store',signal:controller.signal})}finally{clearTimeout(timeout)}
    if(!response.ok)return;
    const html=await response.text();
-   const match=html.match(/VERSION 2\\.0 · BUILD (\\d+\\.\\d+)/);
+   const match=html.match(/VERSION 2\.0 · BUILD (\d+\.\d+)/);
    if(!match)return;
    const remote=match[1];
    const parts=v=>v.split('.').map(Number);
