@@ -11,20 +11,22 @@ const typeButtons=[
  ['Dessertvin','Dessert & port'],['Rosé','Rosé']
 ];
 let category='all';
-const typeSection=document.createElement('section');
-typeSection.className='v2-filter-wrap';
-typeSection.innerHTML='<h2>Udforsk samlingen</h2><div class="v2-filter-buttons" role="group" aria-label="Vintype"></div>';
-const categoryButtons=typeSection.querySelector('.v2-filter-buttons');
+const categoryButtons=document.querySelector('#explore-panel .v2-filter-buttons');
+if(!categoryButtons)throw Error('Vintypefiltre mangler i Udforsk samlingen');
+function selectCategory(value){category=value;categoryButtons.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.type===value)));render()}
 for(const [value,label] of typeButtons){
  const button=document.createElement('button');button.type='button';button.textContent=label;
  button.dataset.type=value;button.setAttribute('aria-pressed',String(value===category));
- button.onclick=()=>{category=value;categoryButtons.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.type===value)));render()};
+ button.onclick=()=>{selectCategory(value);const panel=e('collection-panel');panel.open=true;panel.scrollIntoView({behavior:'smooth',block:'start'})};
  categoryButtons.append(button);
 }
-e('items').before(typeSection);
-const soon=document.createElement('section');soon.id='v2-soon';
-soon.innerHTML='<div class="v2-section-title"><h2>Drik snart</h2><p>Vine, der nærmer sig slutningen af drikkevinduet</p></div><div id="v2-soon-grid" class="v2-soon-grid"></div>';
-typeSection.before(soon);
+const overview=e('overview-panel');overview.addEventListener('click',event=>{
+ const stat=event.target.closest('button[data-overview-filter]');if(!stat)return;
+ e('search').value='';e('filter').value=stat.dataset.overviewFilter||'all';
+ selectCategory(stat.dataset.overviewType||'all');
+ const panel=e('collection-panel');panel.open=true;
+ panel.scrollIntoView({behavior:'smooth',block:'start'});
+});
 const heading=document.createElement('div');heading.className='v2-section-title';
 heading.innerHTML='<h2>Alle vine</h2><span id="v2-list-count"></span>';
 e('items').before(heading);
