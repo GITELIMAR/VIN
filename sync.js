@@ -10,10 +10,10 @@ const key='vin-supabase-settings';
 const cfg=()=>{try{return JSON.parse(localStorage.getItem(key)||'null')}catch{return null}};
 const setStatus=s=>status.textContent=s;
 function load(){return new Promise((resolve,reject)=>{if(window.supabase)return resolve();const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';s.onload=resolve;s.onerror=()=>reject(Error('Supabase-biblioteket kunne ikke indlæses'));document.head.append(s)})}
-async function init(){const c=cfg();if(!c?.url||!c?.anon)return;try{
+async function init(){const c=cfg();if(!c?.url||!c?.anon){window.importPhotoExamplesOnce?.();return}try{
 await load();state.client=window.supabase.createClient(c.url,c.anon);const {data:{session},error}=await state.client.auth.getSession();if(error)throw error;
 state.user=session?.user||null;document.getElementById('cloud-login').hidden=!!state.user;document.getElementById('cloud-logout').hidden=!state.user;document.getElementById('cloud-refresh').hidden=!state.user;
-if(state.user)await pull(true);else setStatus('Cloud sat op. Log ind via e-mail for at synkronisere.');
+if(state.user)await pull(true);else {setStatus('Cloud sat op. Log ind via e-mail for at synkronisere.');window.importPhotoExamplesOnce?.();}
 state.client.auth.onAuthStateChange((_ev,s)=>{const id=s?.user?.id;if(id&&id!==state.user?.id){state.user=s.user;state.ready=false;setTimeout(()=>pull(true).catch(e=>setStatus(e.message)),0)}else if(!id){state.user=null;state.ready=false;setStatus('Logget ud. Lokal tilstand.')}document.getElementById('cloud-login').hidden=!!id;document.getElementById('cloud-logout').hidden=!id;document.getElementById('cloud-refresh').hidden=!id});
 }catch(e){setStatus('Opsætningsfejl: '+e.message)}}
 async function pull(initial=false){if(!state.client||!state.user)return;state.ready=false;
@@ -30,7 +30,7 @@ const localIds=new Set(local.map(x=>x.id));const onlyLocal=local.filter(x=>!remo
 if(onlyLocal.length&&confirm('Der er '+onlyLocal.length+' lokale vine, som ikke er i cloud. Vil du tilføje dem til din cloud-samling?')){
 const {error:mergeError}=await state.client.from('wines').upsert(onlyLocal.map(w=>({id:w.id,user_id:state.user.id,data:w})),{onConflict:'id'});if(mergeError)throw mergeError;resulting=[...remote,...onlyLocal];
 }}
-wines=resulting;localStorage.setItem(KEY,JSON.stringify(wines));render();state.last=new Map(wines.map(w=>[w.id,JSON.stringify(w)]));state.ready=true;setStatus('Cloud synkroniseret · '+wines.length+' vine');
+wines=resulting;localStorage.setItem(KEY,JSON.stringify(wines));render();state.last=new Map(wines.map(w=>[w.id,JSON.stringify(w)]));state.ready=true;setStatus('Cloud synkroniseret · '+wines.length+' vine');window.importPhotoExamplesOnce?.();
 }
 let running=Promise.resolve();
 async function pushChanges(){if(!state.ready||!state.user)return;
