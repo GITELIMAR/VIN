@@ -1,6 +1,17 @@
 'use strict';
 (function(){
 const batch='chatgpt-foto-test-2026-10-28';
+// Vinmæssige skøn pr. oktober 2026, ikke producentgaranterede udløbsdatoer.
+// NV-flaskers optimale vindue afhænger især af degorgeringsdato og opbevaring.
+const windows=[
+ [2026,2029,'Almindelig non-vintage Brut. Drik gerne nu; estimat afhænger af dégorgement.'],
+ [2026,2030,'Blanc de Blancs Grand Cru. Anslået vindue, da dégorgement er ukendt.'],
+ [2026,2031,'Fyldig Grand Cru Nuance med reservevine. Drikkeklar nu.'],
+ [2026,2029,'Origin Brut non-vintage. Bedst vurderet til at nyde relativt ung.'],
+ [2026,2031,'Black Jackets: anslået ekstra gemmepotentiale, afhænger af flaskens dégorgement.'],
+ [2026,2034,'Special Club 2016: moden nu, sandsynligvis videre udvikling ved god opbevaring. Bekræft årgang på flasken.'],
+ [2026,2031,'Special Club 2008: moden Champagne, som bør prioriteres i den kommende årrække.']
+];
 const entries=[
  ['Chartier & Fils','Carte Noire Brut',null,'Champagne'],
  ['Eric Isselée','Grand Cru Blanc de Blancs',null,'Champagne'],
@@ -18,7 +29,7 @@ function importOnce(){
  const test=entries.map(([producer,name,year,type],i)=>({
  id:'c85eab34-0f48-4c62-a8c2-'+String(100000000001+i),
  producer,name,year,type,country:'Frankrig',region:'Champagne',count:1,rating:null,
- from:null,to:null,notes:'TESTFLASKE fra foto · kontrollér producent, cuvée og årgang.',tasted:'',
+ from:windows[i][0],to:windows[i][1],notes:'TESTFLASKE fra foto · Anslået drikkevindue: '+windows[i][2],tasted:'',drinkWindowSource:'ChatGPT-skøn 2026',
  demoPhotoBatch:batch
  })).filter(w=>!existing.has(w.id));
  try{
@@ -29,5 +40,18 @@ function importOnce(){
   if(test.length)notify(test.length+' flasker fra foto tilføjet');
  }catch(e){wines=wines.filter(w=>!test.some(t=>t.id===w.id));alert('Import mislykkedes: '+e.message)}
 }
-window.importPhotoExamplesOnce=importOnce;
+function enrichExisting(){
+ let updated=0;
+ for(const w of wines){
+ const ix=entries.findIndex(([producer,name,year])=>producer.toLowerCase()===String(w.producer).toLowerCase()&&name.toLowerCase()===String(w.name).toLowerCase()&&(year??null)===(w.year??null));
+ if(ix<0||w.from!=null||w.to!=null)continue;
+ w.from=windows[ix][0];w.to=windows[ix][1];
+ w.drinkWindowSource='ChatGPT-skøn 2026';
+ w.notes=[w.notes,'Anslået drikkevindue: '+windows[ix][2]].filter(Boolean).join(' · ');
+ updated++;
+ }
+ if(updated){save();render();}
+ return updated;
+}
+window.importPhotoExamplesOnce=()=>{importOnce();enrichExisting()};
 })();
