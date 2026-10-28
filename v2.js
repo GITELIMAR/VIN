@@ -43,8 +43,8 @@ document.querySelector('header .sub:last-child').textContent='VERSION 2.0 · BUI
 const number=x=>Number.isFinite(Number(x))&&x!==null&&x!==undefined&&x!==''?Number(x):null;
 function score(w){
  const own=number(w.rating);if(own!==null)return {value:own,label:'Din vurdering',details:''};
- const c=w.critic;
- if(!c)return null;
+ const c=(Array.isArray(w.reviews)&&w.reviews.length?w.reviews[0]:w.critic);
+ if(!c||c.kind!=='anmeldelse')return null;
  const exact=number(c.score);
  if(c.kind==='anmeldelse'&&exact!==null)return {value:exact,label:'Anmelderpoint · '+(c.source||'kilde ukendt'),details:c.context||'',url:c.url};
  const low=number(c.low),high=number(c.high);
@@ -64,8 +64,10 @@ function card(w){
  const categoryClass=wineType==='Hvidvin'?'white':wineType==='Champagne'||wineType==='Mousserende'?'sparkling':'red';
  const s=status(w),r=score(w);
  const ratingHtml=r?'<div class="v2-rating"><strong>'+h(Number.isInteger(r.value)?r.value:r.value.toFixed(1))+'/100</strong>'+h(r.label)+(r.details?'<small>'+h(r.details)+'</small>':'')+(r.url&&/^https:\/\//i.test(r.url)?'<small><a href="'+h(r.url)+'" target="_blank" rel="noopener noreferrer">Se kilde</a></small>':'')+'</div>':'';
+ const reviews=Array.isArray(w.reviews)?w.reviews.filter(x=>x.kind==='anmeldelse'&&Number.isFinite(Number(x.score))):[];
+ const links=reviews.length?'<details class="v2-details"><summary>Alle dokumenterede anmeldelser ('+reviews.length+')</summary>'+reviews.map(x=>'<p><strong>'+h(x.score)+'/100 · '+h(x.source)+'</strong>'+(x.url&&/^https:\/\//i.test(x.url)?' · <a href="'+h(x.url)+'" target="_blank" rel="noopener noreferrer">Kilde</a>':'')+(x.context?' · '+h(x.context):'')+'</p>').join('')+'</details>':'';
  const detailText=w.notes||'Ingen smagsnote endnu.';
- return '<article class="wine"><div class="wine-head"></div><div class="wine-body"><div class="v2-wine-top"><div class="v2-bottle '+categoryClass+'" aria-hidden="true"><span>'+h(w.year??'NV')+'</span></div><div class="v2-wine-info"><div class="region">'+h(w.region||w.country||wineType)+'</div><h2>'+h(w.producer)+'</h2><div class="v2-name">'+h(w.name)+'</div><div class="meta">'+h(wineType)+' · '+h(w.year??'NV')+(w.country?' · '+h(w.country):'')+'</div></div></div><div class="chips"><span class="chip">'+count(w)+' '+(count(w)===1?'flaske':'flasker')+'</span><span class="chip '+s+'">'+h(labels[s])+'</span></div><div class="meta">Drikkevindue: '+h(w.from??'—')+' – '+h(w.to??'—')+'</div>'+ratingHtml+'<details class="v2-details"><summary>Noter og detaljer</summary><p>'+h(detailText)+'</p>'+(w.tasted?'<div class="meta">Smagt: '+h(w.tasted)+'</div>':'')+'</details><div class="actions"><button data-action="edit" data-id="'+h(w.id)+'">Redigér</button><button data-action="plus" data-id="'+h(w.id)+'">+1 flaske</button><button data-action="drink" data-id="'+h(w.id)+'" '+(count(w)<1?'disabled':'')+'>−1 flaske</button><button data-action="delete" data-id="'+h(w.id)+'">Slet</button></div></div></article>';
+ return '<article class="wine"><div class="wine-head"></div><div class="wine-body"><div class="v2-wine-top"><div class="v2-bottle '+categoryClass+'" aria-hidden="true"><span>'+h(w.year??'NV')+'</span></div><div class="v2-wine-info"><div class="region">'+h(w.region||w.country||wineType)+'</div><h2>'+h(w.producer)+'</h2><div class="v2-name">'+h(w.name)+'</div><div class="meta">'+h(wineType)+' · '+h(w.year??'NV')+(w.country?' · '+h(w.country):'')+'</div></div></div><div class="chips"><span class="chip">'+count(w)+' '+(count(w)===1?'flaske':'flasker')+'</span><span class="chip '+s+'">'+h(labels[s])+'</span></div><div class="meta">Drikkevindue: '+h(w.from??'—')+' – '+h(w.to??'—')+'</div>'+ratingHtml+links+'<details class="v2-details"><summary>Noter og detaljer</summary><p>'+h(detailText)+'</p>'+(w.tasted?'<div class="meta">Smagt: '+h(w.tasted)+'</div>':'')+'</details><div class="actions"><button data-action="edit" data-id="'+h(w.id)+'">Redigér</button><button data-action="plus" data-id="'+h(w.id)+'">+1 flaske</button><button data-action="drink" data-id="'+h(w.id)+'" '+(count(w)<1?'disabled':'')+'>−1 flaske</button><button data-action="delete" data-id="'+h(w.id)+'">Slet</button></div></div></article>';
 }
 window.render=function(){
  const query=e('search').value.trim().toLocaleLowerCase('da');
