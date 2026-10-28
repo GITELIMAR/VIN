@@ -53,7 +53,9 @@ function enrichExisting(){
  let updated=0;
  for(const w of wines){
  const ix=entries.findIndex(([producer,name,year])=>producer.toLowerCase()===String(w.producer).toLowerCase()&&name.toLowerCase()===String(w.name).toLowerCase()&&(year??null)===(w.year??null));
- if(ix<0)continue;\n if(!w.critic){w.critic=critic[ix];updated++}\n if(w.from!=null||w.to!=null)continue;
+ if(ix<0)continue;
+ if(!w.critic){w.critic=critic[ix];updated++}
+ if(w.from!=null||w.to!=null)continue;
  w.from=windows[ix][0];w.to=windows[ix][1];
  w.drinkWindowSource='ChatGPT-skøn 2026';
  w.notes=[w.notes,'Anslået drikkevindue: '+windows[ix][2]].filter(Boolean).join(' · ');
