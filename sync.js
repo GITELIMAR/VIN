@@ -2,7 +2,7 @@
 // Anon/publishable key er offentlig; brug ALDRIG service_role/secret key her.
 (function(){
 const box=document.createElement('section');box.style.cssText='border:1px solid #455649;background:#1d2921;padding:17px;border-radius:12px;margin:20px 0';
-box.innerHTML='<strong>☁️ Synkronisering</strong><p id="cloud-status">Ikke forbundet. Dine vine gemmes lokalt.</p><div class="utility"><button id="cloud-setup">Opsæt cloud</button><button id="cloud-login" hidden>Send login-link</button><button id="cloud-logout" hidden>Log ud</button><button id="cloud-refresh" hidden>Hent fra cloud</button></div>';
+box.innerHTML='<strong>☁️ Synkronisering</strong><p id="cloud-status">Ikke forbundet. Dine vine gemmes lokalt.</p><div class="utility"><button id="cloud-setup">Opsæt cloud</button><button id="cloud-login" hidden>Log ind med e-mail og kode</button><button id="cloud-logout" hidden>Log ud</button><button id="cloud-refresh" hidden>Hent fra cloud</button></div>';
 document.querySelector('.stats').before(box);
 const status=document.getElementById('cloud-status');
 const state={client:null,user:null,ready:false,busy:false,queued:false,last:new Map()};
@@ -125,7 +125,14 @@ const anon=prompt('Supabase publishable/anon key (ALDRIG secret/service_role)',o
 if(!/^https:\/\/[\w.-]+\.supabase\.co\/?$/.test(url.trim())||!anon.trim()||/service_role|sb_secret_/i.test(anon)){alert('Ugyldig URL eller hemmelig nøgle.');return}
 localStorage.setItem(key,JSON.stringify({url:url.trim().replace(/\/$/,''),anon:anon.trim()}));location.reload()
 };
-document.getElementById('cloud-login').onclick=async()=>{const email=prompt('Din e-mail til login-link:');if(!email)return;const {error}=await state.client.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}});alert(error?'Loginfejl: '+error.message:'Tjek din e-mail og åbn login-linket på denne enhed.')};
+document.getElementById('cloud-login').onclick=async()=>{
+ const email=prompt('E-mailadresse:');if(!email)return;
+ const password=prompt('Adgangskode (mindst 8 tegn):');if(password===null)return;
+ if(!password){alert('Indtast din adgangskode.');return}
+ const {data,error}=await state.client.auth.signInWithPassword({email:email.trim(),password});
+ if(error){alert('Login mislykkedes: '+error.message+'\\nHvis du tidligere brugte login-link, skal du først oprette en adgangskode via Supabase Authentication → Users eller en nulstilling af adgangskoden.');return}
+ if(data?.user){state.user=data.user;document.getElementById('cloud-login').hidden=true;document.getElementById('cloud-logout').hidden=false;document.getElementById('cloud-refresh').hidden=false;try{await pull(true)}catch(e){setStatus('Cloud-fejl: '+e.message)}}
+};
 document.getElementById('cloud-logout').onclick=async()=>{await state.client?.auth.signOut();state.ready=false;sharing=false;shareButtons();setStatus('Logget ud');};
 document.getElementById('cloud-refresh').onclick=async()=>{if(!confirm('Hent cloud-data. Ikke-synkroniserede lokale ændringer kan blive overskrevet. Fortsæt?'))return;try{await pull()}catch(e){setStatus('Hentning fejlede: '+e.message)}};
 init();
