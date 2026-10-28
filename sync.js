@@ -3,11 +3,14 @@
 (function(){
 const box=document.createElement('section');box.style.cssText='border:1px solid #455649;background:#1d2921;padding:17px;border-radius:12px;margin:20px 0';
 box.innerHTML='<strong>☁️ Synkronisering</strong><p id="cloud-status">Ikke forbundet. Dine vine gemmes lokalt.</p><div class="utility"><button id="cloud-setup">Opsæt cloud</button><button id="cloud-mobile-link" hidden>Kopiér mobilopsætning</button><button id="cloud-login" hidden>Log ind med e-mail og kode</button><button id="cloud-magic" hidden>Send login-link via e-mail</button><button id="cloud-reset" hidden>Opret / nulstil adgangskode</button><button id="cloud-password" hidden>Opret adgangskode</button><button id="cloud-logout" hidden>Log ud</button><button id="cloud-refresh" hidden>Hent fra cloud</button></div>';
-document.querySelector('.stats').before(box);box.insertAdjacentHTML('beforeend','<small style="display:block;margin-top:8px;color:#a4b1a5">App-version: 2026-10-28.8</small>');
+document.querySelector('.stats').before(box);box.insertAdjacentHTML('beforeend','<small style="display:block;margin-top:8px;color:#a4b1a5">App-version: 2026-10-28.9</small>');
 const status=document.getElementById('cloud-status');
 const state={client:null,user:null,ready:false,busy:false,queued:false,last:new Map()};
 const key='vin-supabase-settings';
-const cfg=()=>{try{return JSON.parse(localStorage.getItem(key)||'null')}catch{return null}};
+// Offentlig Supabase-konfiguration: samme projekt på Safari og hjemmeskærmsapp.
+// Kun publishable key – ingen adgangskoder eller hemmelige nøgler.
+const DEFAULT_CLOUD={url:'https://cnygxkvyjzyqlhytzvsr.supabase.co',anon:'sb_publishable_BH8HekyCWghzO0jKjBC3SA_tueFlGFj'};
+const cfg=()=>{try{const saved=JSON.parse(localStorage.getItem(key)||'null');return saved?.url&&saved?.anon?saved:DEFAULT_CLOUD}catch{return DEFAULT_CLOUD}};
 const setStatus=s=>status.textContent=s;
 const validCloud=c=>c&&/^https:\/\/[a-z0-9.-]+\.supabase\.co\/?$/i.test(String(c.url||''))&&typeof c.anon==='string'&&c.anon.length>20&&!/service_role|sb_secret_/i.test(c.anon);
 const mobileBtn=document.getElementById('cloud-mobile-link');
