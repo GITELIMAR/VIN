@@ -44,8 +44,8 @@ wines=resulting;localStorage.setItem(KEY,JSON.stringify(wines));render();state.l
 const {data:shared,error:shareError}=await state.client.from('public_wines').select('id').eq('owner_id',state.user.id).limit(1);
 if(!shareError){sharing=!!shared?.length||localStorage.getItem(shareKey())==='yes';}
 shareButtons();
-window.importPhotoExamplesOnce?.();
 try{const added=await importGironville();if(added)setStatus('Cloud synkroniseret · Gironville 2014 tilføjet · '+wines.length+' vine')}catch(e){setStatus('Gironville kunne ikke gemmes i cloud: '+e.message)}
+window.importPhotoExamplesOnce?.();
 }
 
 // Engangsimport fra ChatGPT-billedregistrering, kun på indlogget konto.
