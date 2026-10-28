@@ -3,7 +3,7 @@
 'use strict';
 const trigger=document.createElement('button');
 trigger.className='btn ghost';trigger.type='button';trigger.textContent='🍷 Importér fra ChatGPT';
-document.querySelector('.top').append(trigger);
+document.querySelector('#manual-tools-buttons').append(trigger);
 const dlg=document.createElement('dialog');
 dlg.setAttribute('aria-label','Importér vine fra ChatGPT');
 dlg.innerHTML='<div class="dialog-h"><h2>Importér vine fra ChatGPT</h2><button class="close" id="chat-import-close" aria-label="Luk">×</button></div><div style="padding:20px 24px;display:grid;gap:12px"><p style="margin:0">Indsæt JSON fra ChatGPT. Gennemse flaskerne før import. Eksisterende vine bliver ikke overskrevet, og du skal være logget ind i cloud.</p><textarea id="chat-import-json" style="width:100%;min-height:160px;font-family:monospace;font-size:12px" placeholder='[{"producer":"Pierre Legras","name":"Origin Brut","year":null,"type":"Champagne","country":"Frankrig","region":"Champagne","count":1,"from":2026,"to":2029}]'></textarea><button class="btn ghost" id="chat-import-preview" type="button">Gennemse import</button><div id="chat-import-review" style="white-space:pre-wrap;overflow-wrap:anywhere" role="status"></div><div class="utility"><button id="chat-import-confirm" type="button" disabled>Bekræft og gem i cloud</button><button id="chat-import-cancel" type="button">Annuller</button></div></div>';
