@@ -3,7 +3,7 @@
 (function(){
 const box=document.createElement('section');box.style.cssText='border:1px solid #455649;background:#1d2921;padding:17px;border-radius:12px;margin:20px 0';
 box.innerHTML='<strong>☁️ Synkronisering</strong><p id="cloud-status">Ikke forbundet. Dine vine gemmes lokalt.</p><div class="utility"><button id="cloud-setup">Opsæt cloud</button><button id="cloud-mobile-link" hidden>Kopiér mobilopsætning</button><button id="cloud-login" hidden>Log ind med e-mail og kode</button><button id="cloud-magic" hidden>Send login-link via e-mail</button><button id="cloud-reset" hidden>Opret / nulstil adgangskode</button><button id="cloud-password" hidden>Opret adgangskode</button><button id="cloud-logout" hidden>Log ud</button><button id="cloud-refresh" hidden>Hent fra cloud</button></div>';
-document.querySelector('main').append(box);box.insertAdjacentHTML('beforeend','<small style="display:block;margin-top:8px;color:#a4b1a5">App-version: 2026-10-28.15</small>');
+document.querySelector('main').append(box);box.insertAdjacentHTML('beforeend','<small style="display:block;margin-top:8px;color:#a4b1a5">App-version: 2026-10-28.16</small>');
 const status=document.getElementById('cloud-status');
 const state={client:null,user:null,ready:false,busy:false,queued:false,last:new Map()};
 const key='vin-supabase-settings';
@@ -78,7 +78,7 @@ else{
 async function pull(initial=false){if(!state.client||!state.user)return;state.ready=false;
 const {data,error}=await state.client.from('wines').select('id,data').eq('user_id',state.user.id).limit(10000);if(error)throw error;
 // Cloud er autoritativ efter login. Gamle lokale poster må aldrig genoprette slettede vine.
-const remote=data.map(r=>r.data);
+const remote=data.map(r=>({...r.data,id:r.id}));
 const local=wines.slice();
 // Bevar en lokal redningskopi inden nogen cloud-hentning erstatter indholdet.
 if(local.length){
@@ -105,7 +105,7 @@ const changed=wines.filter(w=>old.get(w.id)!==JSON.stringify(w));
 const removed=[...old.keys()].filter(id=>!current.has(id));
 if(!changed.length&&!removed.length)return;
 setStatus('Gemmer ændringer i cloud…');
-if(changed.length){const {error}=await state.client.from('wines').upsert(changed.map(w=>({id:w.id,user_id:state.user.id,data:w,updated_at:new Date().toISOString()})),{onConflict:'id'});if(error)throw error}
+if(changed.length){if(changed.some(w=>!w.id||!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(String(w.id))))throw Error('En vin mangler gyldigt ID. Hent fra cloud og prøv igen.');const {error}=await state.client.from('wines').upsert(changed.map(w=>({id:w.id,user_id:state.user.id,data:w,updated_at:new Date().toISOString()})),{onConflict:'id'});if(error)throw error}
 if(removed.length){const {error}=await state.client.from('wines').delete().eq('user_id',state.user.id).in('id',removed);if(error)throw error}
 state.last=current;setStatus('Cloud synkroniseret');
 if(sharing){try{await publishSnapshot()}catch(e){setStatus('Private vine gemt, men offentlig visning er ikke opdateret: '+e.message)}}
