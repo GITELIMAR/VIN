@@ -3,7 +3,7 @@
 (function(){
 const box=document.createElement('section');box.style.cssText='border:1px solid #455649;background:#1d2921;padding:17px;border-radius:12px;margin:20px 0';
 box.innerHTML='<strong>☁️ Synkronisering</strong><p id="cloud-status">Ikke forbundet. Dine vine gemmes lokalt.</p><div class="utility"><button id="cloud-setup">Opsæt cloud</button><button id="cloud-mobile-link" hidden>Kopiér mobilopsætning</button><button id="cloud-login" hidden>Log ind med e-mail og kode</button><button id="cloud-magic" hidden>Send login-link via e-mail</button><button id="cloud-reset" hidden>Opret / nulstil adgangskode</button><button id="cloud-password" hidden>Opret adgangskode</button><button id="cloud-logout" hidden>Log ud</button><button id="cloud-refresh" hidden>Hent fra cloud</button></div>';
-document.querySelector('.stats').before(box);box.insertAdjacentHTML('beforeend','<small style="display:block;margin-top:8px;color:#a4b1a5">App-version: 2026-10-28.11</small>');
+document.querySelector('.stats').before(box);box.insertAdjacentHTML('beforeend','<small style="display:block;margin-top:8px;color:#a4b1a5">App-version: 2026-10-28.12</small>');
 const status=document.getElementById('cloud-status');
 const state={client:null,user:null,ready:false,busy:false,queued:false,last:new Map()};
 const key='vin-supabase-settings';
@@ -101,6 +101,29 @@ state.last=current;setStatus('Cloud synkroniseret');
 if(sharing){try{await publishSnapshot()}catch(e){setStatus('Private vine gemt, men offentlig visning er ikke opdateret: '+e.message)}}
 }
 window.queueCloudSync=()=>{if(!state.ready)return;running=running.then(()=>pushChanges()).catch(e=>setStatus('Cloud-fejl: '+e.message+' – eksportér backup, og prøv igen.'))};
+
+// Slet i databasen først, og fjern derefter fra skærmen. Serien af cloud-skrivninger
+// sikrer, at ældre upserts ikke kan genoprette vinen efter en sletning.
+window.deleteWineFromCloud=async(id)=>{
+ if(!state.client||!state.user||!state.ready)throw Error('Cloud er ikke synkroniseret. Sletningen er ikke udført.');
+ const deleting=running.catch(()=>{}).then(async()=>{
+  if(!state.ready||!state.user)throw Error('Cloudforbindelsen er ikke klar.');
+  setStatus('Sletter vin i cloud…');
+  const {data,error}=await state.client.from('wines').delete()
+   .eq('user_id',state.user.id).eq('id',id).select('id');
+  if(error)throw error;
+  if(!data||data.length!==1)throw Error('Supabase bekræftede ikke sletningen. Vinen er bevaret.');
+  wines=wines.filter(w=>w.id!==id);
+  localStorage.setItem(KEY,JSON.stringify(wines));
+  state.last.delete(id);
+  render();
+  setStatus('Slettet i cloud · '+wines.length+' vine');
+  if(sharing){try{await publishSnapshot()}catch(e){setStatus('Vin slettet privat; offentlig visning kunne ikke opdateres: '+e.message)}}
+ });
+ running=deleting.catch(e=>{setStatus('Sletning fejlede: '+e.message)});
+ return deleting;
+};
+
 // Den offentlige samling er en separat, eksplicit offentliggjort kopi.
 // Kun whitelistede vinfelter offentliggøres; private smagsnoter og smagedatoer deles ikke.
 const shareUi=document.createElement('div');
