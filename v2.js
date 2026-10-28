@@ -39,7 +39,7 @@ window.updateCloudStatus=text=>{
 };
 e('sample').hidden=true; // Demoindhold hører ikke til i ejerens produktionssamling.
 e('sample').disabled=true;
-document.querySelector('header .sub:last-child').textContent='VERSION 2.0 · BUILD 28.24';
+// Build vises kun i #build-version i index.html.
 const number=x=>Number.isFinite(Number(x))&&x!==null&&x!==undefined&&x!==''?Number(x):null;
 function score(w){
  const own=number(w.rating);if(own!==null)return {value:own,label:'Din vurdering',details:''};
