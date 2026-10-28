@@ -2,13 +2,36 @@
 // Anon/publishable key er offentlig; brug ALDRIG service_role/secret key her.
 (function(){
 const box=document.createElement('section');box.style.cssText='border:1px solid #455649;background:#1d2921;padding:17px;border-radius:12px;margin:20px 0';
-box.innerHTML='<strong>☁️ Synkronisering</strong><p id="cloud-status">Ikke forbundet. Dine vine gemmes lokalt.</p><div class="utility"><button id="cloud-setup">Opsæt cloud</button><button id="cloud-login" hidden>Log ind med e-mail og kode</button><button id="cloud-magic" hidden>Send login-link via e-mail</button><button id="cloud-reset" hidden>Opret / nulstil adgangskode</button><button id="cloud-logout" hidden>Log ud</button><button id="cloud-refresh" hidden>Hent fra cloud</button></div>';
-document.querySelector('.stats').before(box);box.insertAdjacentHTML('beforeend','<small style="display:block;margin-top:8px;color:#a4b1a5">App-version: 2026-10-28.6</small>');
+box.innerHTML='<strong>☁️ Synkronisering</strong><p id="cloud-status">Ikke forbundet. Dine vine gemmes lokalt.</p><div class="utility"><button id="cloud-setup">Opsæt cloud</button><button id="cloud-mobile-link" hidden>Kopiér mobilopsætning</button><button id="cloud-login" hidden>Log ind med e-mail og kode</button><button id="cloud-magic" hidden>Send login-link via e-mail</button><button id="cloud-reset" hidden>Opret / nulstil adgangskode</button><button id="cloud-logout" hidden>Log ud</button><button id="cloud-refresh" hidden>Hent fra cloud</button></div>';
+document.querySelector('.stats').before(box);box.insertAdjacentHTML('beforeend','<small style="display:block;margin-top:8px;color:#a4b1a5">App-version: 2026-10-28.7</small>');
 const status=document.getElementById('cloud-status');
 const state={client:null,user:null,ready:false,busy:false,queued:false,last:new Map()};
 const key='vin-supabase-settings';
 const cfg=()=>{try{return JSON.parse(localStorage.getItem(key)||'null')}catch{return null}};
 const setStatus=s=>status.textContent=s;
+const validCloud=c=>c&&/^https:\/\/[a-z0-9.-]+\.supabase\.co\/?$/i.test(String(c.url||''))&&typeof c.anon==='string'&&c.anon.length>20&&!/service_role|sb_secret_/i.test(c.anon);
+const mobileBtn=document.getElementById('cloud-mobile-link');
+mobileBtn.hidden=!validCloud(cfg());
+// Kun Supabases offentlige konfiguration deles – aldrig adgangskode eller session.
+// Brug URL-fragment, så konfigurationen ikke sendes til GitHub Pages-serveren.
+mobileBtn.onclick=async()=>{
+ const c=cfg();if(!validCloud(c))return;
+ const link=location.origin+location.pathname+'#cloud_setup='+encodeURIComponent(JSON.stringify({url:c.url,anon:c.anon}));
+ try{await navigator.clipboard.writeText(link);notify('Mobilopsætningslink kopieret. Send det til din iPhone og åbn i Safari.')}
+ catch{prompt('Kopiér dette link, og åbn det på din iPhone:',link)}
+};
+const incoming=new URLSearchParams(location.hash.slice(1)).get('cloud_setup');
+if(incoming){
+ try{
+  const candidate=JSON.parse(incoming);
+  if(!validCloud(candidate))throw Error('Ugyldig offentlig cloud-konfiguration');
+  localStorage.setItem(key,JSON.stringify({url:candidate.url.replace(/\/$/,''),anon:candidate.anon}));
+  history.replaceState(null,'',location.pathname+location.search);
+  mobileBtn.hidden=false;
+  setStatus('Cloud er konfigureret på denne enhed. Log ind med e-mail.');
+ }catch(e){setStatus('Opsætningslink kunne ikke bruges: '+e.message)}
+}
+
 function load(){return new Promise((resolve,reject)=>{if(window.supabase)return resolve();const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';s.onload=resolve;s.onerror=()=>reject(Error('Supabase-biblioteket kunne ikke indlæses'));document.head.append(s)})}
 async function init(){const c=cfg();if(!c?.url||!c?.anon){window.importPhotoExamplesOnce?.();return}try{
 await load();state.client=window.supabase.createClient(c.url,c.anon);state.client.auth.onAuthStateChange((event)=>{
