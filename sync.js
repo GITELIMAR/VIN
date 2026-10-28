@@ -35,7 +35,29 @@ const {data:shared,error:shareError}=await state.client.from('public_wines').sel
 if(!shareError){sharing=!!shared?.length||localStorage.getItem(shareKey())==='yes';}
 shareButtons();
 window.importPhotoExamplesOnce?.();
+try{await importGironville()}catch(e){setStatus('Kunne ikke importere Gironville: '+e.message)}
 }
+
+// Engangsimport fra ChatGPT-billedregistrering, kun på indlogget konto.
+// Den faste ID undgår dubletter; marker gemmes lokalt efter første forsøg.
+async function importGironville(){
+ const marker='vin-gironville-2014-import-v1-'+state.user.id;
+ if(localStorage.getItem(marker)==='done')return;
+ const id='f5d4298e-0df0-4b64-950e-201400000001';
+ if(wines.some(w=>w.id===id)||wines.some(w=>String(w.producer).toLowerCase()==='château de gironville'&&Number(w.year)===2014)){
+  localStorage.setItem(marker,'done');return;
+ }
+ const wine={id,producer:'Château de Gironville',name:'Haut-Médoc Cru Bourgeois',
+ year:2014,type:'Rødvin',country:'Frankrig',region:'Bordeaux · Haut-Médoc',count:1,
+ rating:null,from:2022,to:2029,notes:'Drikkevindue er et skøn baseret på årgang og vinstil.',tasted:'',
+ critic:{low:88,high:91,source:'ChatGPT',kind:'estimat',context:'Foreløbigt kvalitetsestimat, ikke verificerede Parker- eller andre anmelderpoint.'}};
+ const {error}=await state.client.from('wines').insert({id,user_id:state.user.id,data:wine});
+ if(error)throw error;
+ wines.push(wine);localStorage.setItem(KEY,JSON.stringify(wines));state.last.set(id,JSON.stringify(wine));
+ localStorage.setItem(marker,'done');render();notify('Château de Gironville 2014 tilføjet');
+ if(sharing)await publishSnapshot();
+}
+
 let running=Promise.resolve();
 async function pushChanges(){if(!state.ready||!state.user)return;
 const old=state.last;const current=new Map(wines.map(w=>[w.id,JSON.stringify(w)]));
