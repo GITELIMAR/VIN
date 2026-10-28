@@ -2,7 +2,7 @@
 // Anon/publishable key er offentlig; brug ALDRIG service_role/secret key her.
 (function(){
 const box=document.createElement('section');box.style.cssText='border:1px solid #455649;background:#1d2921;padding:17px;border-radius:12px;margin:20px 0';
-box.innerHTML='<strong>☁️ Synkronisering</strong><p id="cloud-status">Ikke forbundet. Dine vine gemmes lokalt.</p><div class="utility"><button id="cloud-setup">Opsæt cloud</button><button id="cloud-mobile-link" hidden>Kopiér mobilopsætning</button><button id="cloud-login" hidden>Log ind med e-mail og kode</button><button id="cloud-magic" hidden>Send login-link via e-mail</button><button id="cloud-reset" hidden>Opret / nulstil adgangskode</button><button id="cloud-password" hidden>Opret adgangskode</button><button id="cloud-logout" hidden>Log ud</button><button id="cloud-refresh" hidden>Hent fra cloud</button></div>';
+box.innerHTML='<strong>☁️ Synkronisering</strong><p id="cloud-status" role="status">Kontrollerer cloud-forbindelsen…</p><div id="cloud-signed-out" hidden><div class="utility"><button id="cloud-login" hidden>Log ind med e-mail og kode</button></div><details style="margin-top:12px"><summary style="cursor:pointer">Andre loginmuligheder</summary><div class="utility" style="margin-top:10px"><button id="cloud-magic" hidden>Send login-link via e-mail</button><button id="cloud-reset" hidden>Opret / nulstil adgangskode</button></div></details></div><details id="cloud-account" style="margin-top:12px" hidden><summary style="cursor:pointer;font-weight:600">Kontoindstillinger</summary><div class="utility" style="margin-top:12px"><button id="cloud-password" hidden>Opret adgangskode</button><button id="cloud-logout" hidden>Log ud</button><button id="cloud-refresh" hidden>Hent fra cloud</button></div><div id="cloud-sharing-options"></div></details><details id="cloud-advanced" style="margin-top:12px"><summary style="cursor:pointer">Avanceret opsætning</summary><div class="utility" style="margin-top:10px"><button id="cloud-setup">Opsæt cloud</button><button id="cloud-mobile-link" hidden>Kopiér mobilopsætning</button></div></details>';
 document.querySelector('main').append(box);// Versionsnummeret vises kun i appens hoved, ikke separat i synkronisering.
 const status=document.getElementById('cloud-status');
 const state={client:null,user:null,ready:false,busy:false,queued:false,last:new Map(),versions:new Map()};
@@ -51,6 +51,9 @@ await load();state.client=window.supabase.createClient(c.url,c.anon);state.clien
 // Abonnér før getSession: e-mail-link kan logge ind imens klienten initialiseres.
 const authButtons=()=>{
  const loggedIn=!!state.user;
+ document.getElementById('cloud-signed-out').hidden=loggedIn;
+ document.getElementById('cloud-account').hidden=!loggedIn;
+ document.getElementById('cloud-advanced').hidden=loggedIn;
  for(const id of ['cloud-login','cloud-magic','cloud-reset'])document.getElementById(id).hidden=loggedIn;
  for(const id of ['cloud-password','cloud-logout','cloud-refresh'])document.getElementById(id).hidden=!loggedIn;
 };
@@ -202,7 +205,7 @@ window.importChatWines=async incoming=>{
 const shareUi=document.createElement('div');
 shareUi.className='utility';shareUi.style.marginTop='12px';
 shareUi.innerHTML='<button id="share-on">Gør min samling offentlig</button><button id="share-link" hidden>Kopiér offentligt link</button><button id="share-off" hidden>Stop offentlig visning</button>';
-box.append(shareUi);
+document.getElementById('cloud-sharing-options').append(shareUi);
 let sharing=false;
 const shareKey=()=>state.user?'vin-sharing-'+state.user.id:'';
 const shareButtons=()=>{const active=!!state.user&&state.ready;document.getElementById('share-on').hidden=!active||sharing;document.getElementById('share-link').hidden=!active||!sharing;document.getElementById('share-off').hidden=!active||!sharing;};
@@ -257,7 +260,7 @@ document.getElementById('cloud-login').onclick=async()=>{
  if(!password){alert('Indtast din adgangskode.');return}
  const {data,error}=await state.client.auth.signInWithPassword({email:email.trim(),password});
  if(error){alert('Login mislykkedes: '+error.message+'\\nHvis du tidligere brugte login-link, skal du først oprette en adgangskode via Supabase Authentication → Users eller en nulstilling af adgangskoden.');return}
- if(data?.user){state.user=data.user;document.getElementById('cloud-login').hidden=true;document.getElementById('cloud-reset').hidden=true;document.getElementById('cloud-magic').hidden=true;document.getElementById('cloud-password').hidden=false;document.getElementById('cloud-logout').hidden=false;document.getElementById('cloud-refresh').hidden=false;try{await pull(true)}catch(e){setStatus('Cloud-fejl: '+e.message)}}
+ if(data?.user){state.user=data.user;document.getElementById('cloud-signed-out').hidden=true;document.getElementById('cloud-account').hidden=false;document.getElementById('cloud-advanced').hidden=true;try{await pull(true)}catch(e){setStatus('Cloud-fejl: '+e.message)}}
 };
 document.getElementById('cloud-magic').onclick=async()=>{
  const email=prompt('E-mailadressen på din eksisterende vinkælder-konto:');
