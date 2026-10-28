@@ -75,5 +75,20 @@ function enrichExisting(){
  if(updated){save();render();}
  return updated;
 }
-window.importPhotoExamplesOnce=()=>{importOnce();enrichExisting()};
+function importGironvilleLocally(){
+ const marker='vin-gironville-2014-import-v2';
+ const id='f5d4298e-0df0-4b64-950e-201400000001';
+ if(localStorage.getItem(marker)==='done')return;
+ if(wines.some(w=>w.id===id||(String(w.producer||'').toLocaleLowerCase('da')==='château de gironville'&&Number(w.year)===2014))){
+  localStorage.setItem(marker,'done');return;
+ }
+ const wine={id,producer:'Château de Gironville',name:'Haut-Médoc Cru Bourgeois',year:2014,
+ type:'Rødvin',country:'Frankrig',region:'Bordeaux · Haut-Médoc',count:1,rating:null,
+ from:2022,to:2029,notes:'Anslået drikkevindue, ikke en garanti.',tasted:'',
+ critic:{low:88,high:91,source:'ChatGPT',kind:'estimat',context:'Foreløbigt skøn. Ikke verificerede anmelderpoint.'}};
+ wines.push(wine);
+ try{save();localStorage.setItem(marker,'done');render();notify('Château de Gironville 2014 er registreret')}
+ catch(e){wines=wines.filter(w=>w.id!==id);alert('Gironville kunne ikke gemmes: '+e.message)}
+}
+window.importPhotoExamplesOnce=()=>{importOnce();enrichExisting();importGironvilleLocally()};
 })();
