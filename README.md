@@ -18,3 +18,13 @@ Forvent begrænsninger på gratis planer, inklusive e-mail kvoter og eventuel pa
 
 ## Privatliv
 Kun den indloggede bruger kan få adgang til sine vine med row-level security. Del aldrig Supabase service-role/secret key. Billeder uploades **ikke** til serveren i denne version; de analyseres i browseren og gemmes ikke.
+
+
+## Offentlig, skrivebeskyttet samling
+1. Kør [supabase/public-sharing.sql](supabase/public-sharing.sql) i Supabase SQL Editor. Dette skal gøres en gang efter den private database er oprettet.
+2. Log ind i appen på `index.html` og kontrollér at status er **Cloud synkroniseret**.
+3. Klik **Gør min samling offentlig** for at publicere en kopi af vinene uden private noter eller smagedato.
+4. Del linket, som knappen kopierer. Det åbner `public.html`, hvor alle kun kan læse.
+5. Brug **Stop offentlig visning** for at fjerne de offentliggjorte data igen.
+
+**Sikkerhed:** Det er databasepolitikker, ikke skjulte knapper, der beskytter mod andres ændringer. `public_wines` giver alle læseadgang til delte metadata, men kun den loggede ejer må skrive eller slette. Det offentlige link indeholder kun Supabases *offentlige* publishable/anon key – aldrig en hemmelig nøgle. Linket er langt. Alle med linket kan se den offentliggjorte liste, og indholdet er ikke privat. Offentliggørelse kræver en aktiv Supabase-login-session, og ændringer synkroniseres ved online ændringer på enheder, der har registreret at samlingen er offentlig.
