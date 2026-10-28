@@ -1,7 +1,7 @@
 // Gratis, lokal tekstgenkendelse. Ikke en produktdatabase eller sikker vinidentifikation.
 (function(){
 const btn=document.createElement('button');btn.className='btn ghost';btn.textContent='📷 Scan etiket';btn.type='button';
-document.querySelector('.top').append(btn);
+document.querySelector('#manual-tools-buttons').append(btn);
 const upload=document.createElement('input');upload.type='file';upload.accept='image/*';upload.setAttribute('capture','environment');upload.hidden=true;document.body.append(upload);
 btn.onclick=()=>upload.click();
 function loadScript(){return new Promise((resolve,reject)=>{if(window.Tesseract)return resolve();const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/tesseract.js@6/dist/tesseract.min.js';s.onload=resolve;s.onerror=()=>reject(new Error('Kunne ikke indlæse tekstgenkendelse'));document.head.append(s)})}
