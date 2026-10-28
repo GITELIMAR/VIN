@@ -3,7 +3,7 @@
 (function(){
 const box=document.createElement('section');box.style.cssText='border:1px solid #455649;background:#1d2921;padding:17px;border-radius:12px;margin:20px 0';
 box.innerHTML='<strong>☁️ Synkronisering</strong><p id="cloud-status">Ikke forbundet. Dine vine gemmes lokalt.</p><div class="utility"><button id="cloud-setup">Opsæt cloud</button><button id="cloud-mobile-link" hidden>Kopiér mobilopsætning</button><button id="cloud-login" hidden>Log ind med e-mail og kode</button><button id="cloud-magic" hidden>Send login-link via e-mail</button><button id="cloud-reset" hidden>Opret / nulstil adgangskode</button><button id="cloud-password" hidden>Opret adgangskode</button><button id="cloud-logout" hidden>Log ud</button><button id="cloud-refresh" hidden>Hent fra cloud</button></div>';
-document.querySelector('main').append(box);box.insertAdjacentHTML('beforeend','<small style="display:block;margin-top:8px;color:#a4b1a5">App-version: 2026-10-28.16</small>');
+document.querySelector('main').append(box);box.insertAdjacentHTML('beforeend','<small style="display:block;margin-top:8px;color:#a4b1a5">App-version: 2026-10-28.17</small>');
 const status=document.getElementById('cloud-status');
 const state={client:null,user:null,ready:false,busy:false,queued:false,last:new Map()};
 const key='vin-supabase-settings';
