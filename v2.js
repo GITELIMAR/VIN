@@ -64,7 +64,7 @@ window.render=function(){
  const query=e('search').value.trim().toLocaleLowerCase('da');
  const filter=e('filter').value,sort=e('order').value;
  const visible=wines.filter(w=>(
-   category==='all'||w.type===category
+   category==='all'||(String(w.type||'Andet').trim()||'Andet')===category
  )&&(filter==='all'||(filter==='favorites'?!!w.favorite:status(w)===filter))&&[
    w.name,w.producer,w.country,w.region,w.type,String(w.year??'')
  ].join(' ').toLocaleLowerCase('da').includes(query));
