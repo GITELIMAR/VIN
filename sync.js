@@ -3,7 +3,7 @@
 (function(){
 const box=document.createElement('section');box.style.cssText='border:1px solid #455649;background:#1d2921;padding:17px;border-radius:12px;margin:20px 0';
 box.innerHTML='<strong>☁️ Synkronisering</strong><p id="cloud-status">Ikke forbundet. Dine vine gemmes lokalt.</p><div class="utility"><button id="cloud-setup">Opsæt cloud</button><button id="cloud-login" hidden>Log ind med e-mail og kode</button><button id="cloud-reset" hidden>Opret / nulstil adgangskode</button><button id="cloud-logout" hidden>Log ud</button><button id="cloud-refresh" hidden>Hent fra cloud</button></div>';
-document.querySelector('.stats').before(box);box.insertAdjacentHTML('beforeend','<small style="display:block;margin-top:8px;color:#a4b1a5">App-version: 2026-10-28.2</small>');
+document.querySelector('.stats').before(box);box.insertAdjacentHTML('beforeend','<small style="display:block;margin-top:8px;color:#a4b1a5">App-version: 2026-10-28.4</small>');
 const status=document.getElementById('cloud-status');
 const state={client:null,user:null,ready:false,busy:false,queued:false,last:new Map()};
 const key='vin-supabase-settings';
@@ -45,27 +45,28 @@ const {data:shared,error:shareError}=await state.client.from('public_wines').sel
 if(!shareError){sharing=!!shared?.length||localStorage.getItem(shareKey())==='yes';}
 shareButtons();
 window.importPhotoExamplesOnce?.();
-try{await importGironville()}catch(e){setStatus('Kunne ikke importere Gironville: '+e.message)}
+try{const added=await importGironville();if(added)setStatus('Cloud synkroniseret · Gironville 2014 tilføjet · '+wines.length+' vine')}catch(e){setStatus('Gironville kunne ikke gemmes i cloud: '+e.message)}
 }
 
 // Engangsimport fra ChatGPT-billedregistrering, kun på indlogget konto.
 // Den faste ID undgår dubletter; marker gemmes lokalt efter første forsøg.
 async function importGironville(){
- const marker='vin-gironville-2014-import-v1-'+state.user.id;
- if(localStorage.getItem(marker)==='done')return;
+ // En tidligere lokal importmarkør er ikke bevis for, at vinen findes i Supabase.
+ // Kontrollér altid den cloud-hentede samling, inden vi erklærer importen færdig.
  const id='f5d4298e-0df0-4b64-950e-201400000001';
- if(wines.some(w=>w.id===id)||wines.some(w=>String(w.producer).toLowerCase()==='château de gironville'&&Number(w.year)===2014)){
-  localStorage.setItem(marker,'done');return;
- }
+ const match=w=>w.id===id||(String(w.producer||'').normalize('NFC').toLocaleLowerCase('da')==='château de gironville'&&Number(w.year)===2014);
+ if(wines.some(match))return false;
  const wine={id,producer:'Château de Gironville',name:'Haut-Médoc Cru Bourgeois',
  year:2014,type:'Rødvin',country:'Frankrig',region:'Bordeaux · Haut-Médoc',count:1,
  rating:null,from:2022,to:2029,notes:'Drikkevindue er et skøn baseret på årgang og vinstil.',tasted:'',
- critic:{low:88,high:91,source:'ChatGPT',kind:'estimat',context:'Foreløbigt kvalitetsestimat, ikke verificerede Parker- eller andre anmelderpoint.'}};
- const {error}=await state.client.from('wines').insert({id,user_id:state.user.id,data:wine});
+ critic:{low:88,high:91,source:'ChatGPT',kind:'estimat',context:'Foreløbigt kvalitetsestimat; ikke verificerede anmelderpoint.'}};
+ // Vent på et bekræftet databasesvar, før importen markeres som gennemført.
+ const {error}=await state.client.from('wines').upsert({id,user_id:state.user.id,data:wine},{onConflict:'id'});
  if(error)throw error;
- wines.push(wine);localStorage.setItem(KEY,JSON.stringify(wines));state.last.set(id,JSON.stringify(wine));
- localStorage.setItem(marker,'done');render();notify('Château de Gironville 2014 tilføjet');
- if(sharing)await publishSnapshot();
+ wines.push(wine);localStorage.setItem(KEY,JSON.stringify(wines));state.last.set(id,JSON.stringify(wine));render();
+ if(sharing){try{await publishSnapshot()}catch(e){setStatus('Gironville gemt privat, offentlig deling fejlede: '+e.message)}}
+ notify('Château de Gironville 2014 tilføjet');
+ return true;
 }
 
 let running=Promise.resolve();
