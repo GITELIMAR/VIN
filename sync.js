@@ -30,7 +30,7 @@ const localIds=new Set(local.map(x=>x.id));const onlyLocal=local.filter(x=>!remo
 if(onlyLocal.length&&confirm('Der er '+onlyLocal.length+' lokale vine, som ikke er i cloud. Vil du tilføje dem til din cloud-samling?')){
 const {error:mergeError}=await state.client.from('wines').upsert(onlyLocal.map(w=>({id:w.id,user_id:state.user.id,data:w})),{onConflict:'id'});if(mergeError)throw mergeError;resulting=[...remote,...onlyLocal];
 }}
-wines=resulting;localStorage.setItem(KEY,JSON.stringify(wines));render();state.last=new Map(wines.map(w=>[w.id,JSON.stringify(w)]));state.ready=true;setStatus('Synkroniseret med cloud som '+state.user.email+' · '+wines.length+' vine');
+wines=resulting;localStorage.setItem(KEY,JSON.stringify(wines));render();state.last=new Map(wines.map(w=>[w.id,JSON.stringify(w)]));state.ready=true;setStatus('Cloud synkroniseret · '+wines.length+' vine');
 }
 let running=Promise.resolve();
 async function pushChanges(){if(!state.ready||!state.user)return;
@@ -41,7 +41,7 @@ if(!changed.length&&!removed.length)return;
 setStatus('Gemmer ændringer i cloud…');
 if(changed.length){const {error}=await state.client.from('wines').upsert(changed.map(w=>({id:w.id,user_id:state.user.id,data:w,updated_at:new Date().toISOString()})),{onConflict:'id'});if(error)throw error}
 if(removed.length){const {error}=await state.client.from('wines').delete().eq('user_id',state.user.id).in('id',removed);if(error)throw error}
-state.last=current;setStatus('Synkroniseret med cloud som '+state.user.email);
+state.last=current;setStatus('Cloud synkroniseret');
 }
 window.queueCloudSync=()=>{if(!state.ready)return;running=running.then(()=>pushChanges()).catch(e=>setStatus('Cloud-fejl: '+e.message+' – eksportér backup, og prøv igen.'))};
 document.getElementById('cloud-setup').onclick=async()=>{
