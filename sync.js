@@ -2,9 +2,10 @@
 // Anon/publishable key er offentlig; brug ALDRIG service_role/secret key her.
 (function(){
 const box=document.createElement('section');box.style.cssText='border:1px solid #455649;background:#1d2921;padding:17px;border-radius:12px;margin:20px 0';
-box.innerHTML='<strong>☁️ Synkronisering</strong><p id="cloud-status" role="status">Kontrollerer cloud-forbindelsen…</p><div id="cloud-signed-out" hidden><div class="utility"><button id="cloud-login" hidden>Log ind med e-mail og kode</button></div><details style="margin-top:12px"><summary style="cursor:pointer">Andre loginmuligheder</summary><div class="utility" style="margin-top:10px"><button id="cloud-magic" hidden>Send login-link via e-mail</button><button id="cloud-reset" hidden>Opret / nulstil adgangskode</button></div></details></div><details id="cloud-account" style="margin-top:12px" hidden><summary style="cursor:pointer;font-weight:600">Kontoindstillinger</summary><div class="utility" style="margin-top:12px"><button id="cloud-password" hidden>Opret adgangskode</button><button id="cloud-logout" hidden>Log ud</button><button id="cloud-refresh" hidden>Hent fra cloud</button></div><div id="cloud-sharing-options"></div></details><details id="cloud-advanced" style="margin-top:12px"><summary style="cursor:pointer">Avanceret opsætning</summary><div class="utility" style="margin-top:10px"><button id="cloud-setup">Opsæt cloud</button><button id="cloud-mobile-link" hidden>Kopiér mobilopsætning</button></div></details>';
+box.innerHTML='<details id="cloud-panel" open><summary style="cursor:pointer;font:500 23px Georgia,serif">☁️ Synkronisering</summary><p id="cloud-status" role="status">Kontrollerer cloud-forbindelsen…</p><div id="cloud-signed-out" hidden><div class="utility"><button id="cloud-login" hidden>Log ind med e-mail og kode</button></div><details style="margin-top:12px"><summary style="cursor:pointer">Andre loginmuligheder</summary><div class="utility" style="margin-top:10px"><button id="cloud-magic" hidden>Send login-link via e-mail</button><button id="cloud-reset" hidden>Opret / nulstil adgangskode</button></div></details></div><details id="cloud-account" style="margin-top:12px" hidden><summary style="cursor:pointer;font-weight:600">Kontoindstillinger</summary><div class="utility" style="margin-top:12px"><button id="cloud-password" hidden>Opret adgangskode</button><button id="cloud-logout" hidden>Log ud</button><button id="cloud-refresh" hidden>Hent fra cloud</button></div><div id="cloud-sharing-options"></div></details><details id="cloud-advanced" style="margin-top:12px"><summary style="cursor:pointer">Avanceret opsætning</summary><div class="utility" style="margin-top:10px"><button id="cloud-setup">Opsæt cloud</button><button id="cloud-mobile-link" hidden>Kopiér mobilopsætning</button></div></details></details>';
 const backupFooter=document.getElementById('backup-footer');const main=document.querySelector('main');if(backupFooter)main.insertBefore(box,backupFooter);else main.append(box);// Versionsnummeret vises kun i appens hoved, ikke separat i synkronisering.
 const status=document.getElementById('cloud-status');
+const cloudPanel=document.getElementById('cloud-panel');const CLOUD_FOLD_PREF='min-vinkaelder-cloud-open-v1';let cloudUserChoice=null;try{const pref=localStorage.getItem(CLOUD_FOLD_PREF);if(pref==='true'||pref==='false')cloudUserChoice=pref==='true'}catch(e){}if(cloudUserChoice!==null)cloudPanel.open=cloudUserChoice;cloudPanel.addEventListener('toggle',()=>{cloudUserChoice=cloudPanel.open;try{localStorage.setItem(CLOUD_FOLD_PREF,String(cloudPanel.open))}catch(e){}});
 const state={client:null,user:null,ready:false,busy:false,queued:false,last:new Map(),versions:new Map()};
 const wineSignature=w=>JSON.stringify(w,(k,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.fromEntries(Object.keys(v).sort().map(key=>[key,v[key]])):v);
 const key='vin-supabase-settings';
@@ -51,6 +52,7 @@ await load();state.client=window.supabase.createClient(c.url,c.anon);state.clien
 // Abonnér før getSession: e-mail-link kan logge ind imens klienten initialiseres.
 const authButtons=()=>{
  const loggedIn=!!state.user;
+ if(!loggedIn)cloudPanel.open=true;else if(cloudUserChoice===null)cloudPanel.open=false;
  document.getElementById('cloud-signed-out').hidden=loggedIn;
  document.getElementById('cloud-account').hidden=!loggedIn;
  document.getElementById('cloud-advanced').hidden=loggedIn;
@@ -260,7 +262,7 @@ document.getElementById('cloud-login').onclick=async()=>{
  if(!password){alert('Indtast din adgangskode.');return}
  const {data,error}=await state.client.auth.signInWithPassword({email:email.trim(),password});
  if(error){alert('Login mislykkedes: '+error.message+'\\nHvis du tidligere brugte login-link, skal du først oprette en adgangskode via Supabase Authentication → Users eller en nulstilling af adgangskoden.');return}
- if(data?.user){state.user=data.user;document.getElementById('cloud-signed-out').hidden=true;document.getElementById('cloud-account').hidden=false;document.getElementById('cloud-advanced').hidden=true;try{await pull(true)}catch(e){setStatus('Cloud-fejl: '+e.message)}}
+ if(data?.user){state.user=data.user;document.getElementById('cloud-signed-out').hidden=true;document.getElementById('cloud-account').hidden=false;document.getElementById('cloud-advanced').hidden=true;if(cloudUserChoice===null)cloudPanel.open=false;try{await pull(true)}catch(e){setStatus('Cloud-fejl: '+e.message)}}
 };
 document.getElementById('cloud-magic').onclick=async()=>{
  const email=prompt('E-mailadressen på din eksisterende vinkælder-konto:');
