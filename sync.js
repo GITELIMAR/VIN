@@ -3,7 +3,7 @@
 (function(){
 const box=document.createElement('section');box.style.cssText='border:1px solid #455649;background:#1d2921;padding:17px;border-radius:12px;margin:20px 0';
 box.innerHTML='<strong>☁️ Synkronisering</strong><p id="cloud-status">Ikke forbundet. Dine vine gemmes lokalt.</p><div class="utility"><button id="cloud-setup">Opsæt cloud</button><button id="cloud-login" hidden>Log ind med e-mail og kode</button><button id="cloud-magic" hidden>Send login-link via e-mail</button><button id="cloud-reset" hidden>Opret / nulstil adgangskode</button><button id="cloud-logout" hidden>Log ud</button><button id="cloud-refresh" hidden>Hent fra cloud</button></div>';
-document.querySelector('.stats').before(box);box.insertAdjacentHTML('beforeend','<small style="display:block;margin-top:8px;color:#a4b1a5">App-version: 2026-10-28.5</small>');
+document.querySelector('.stats').before(box);box.insertAdjacentHTML('beforeend','<small style="display:block;margin-top:8px;color:#a4b1a5">App-version: 2026-10-28.6</small>');
 const status=document.getElementById('cloud-status');
 const state={client:null,user:null,ready:false,busy:false,queued:false,last:new Map()};
 const key='vin-supabase-settings';
@@ -21,10 +21,33 @@ await load();state.client=window.supabase.createClient(c.url,c.anon);state.clien
   alert(error?'Kunne ikke gemme adgangskoden: '+error.message:'Din adgangskode er oprettet. Fremover logger du ind med e-mail og kode.');
  },0);
 });
+// Abonnér før getSession: e-mail-link kan logge ind imens klienten initialiseres.
+const authButtons=()=>{
+ const loggedIn=!!state.user;
+ for(const id of ['cloud-login','cloud-magic','cloud-reset'])document.getElementById(id).hidden=loggedIn;
+ for(const id of ['cloud-logout','cloud-refresh'])document.getElementById(id).hidden=!loggedIn;
+};
+state.client.auth.onAuthStateChange((event,session)=>{
+ // INITIAL_SESSION kan være tom under udveksling af magic-link-kode.
+ // Kun en egentlig SIGNED_OUT-hændelse må nulstille en eksisterende session.
+ if(event==='SIGNED_OUT'){
+  state.user=null;state.ready=false;sharing=false;authButtons();shareButtons();
+  setStatus('Logget ud. Lokal tilstand.');return;
+ }
+ if(!session?.user)return;
+ const previous=state.user?.id;
+ state.user=session.user;authButtons();
+ if(event==='SIGNED_IN'&&(!state.ready||previous!==session.user.id)){
+  setTimeout(()=>pull(true).catch(e=>setStatus('Cloud-login lykkedes, men hentning fejlede: '+e.message)),0);
+ }
+});
 const {data:{session},error}=await state.client.auth.getSession();if(error)throw error;
-state.user=session?.user||null;document.getElementById('cloud-login').hidden=!!state.user;document.getElementById('cloud-reset').hidden=!!state.user;document.getElementById('cloud-magic').hidden=!!state.user;document.getElementById('cloud-logout').hidden=!state.user;document.getElementById('cloud-refresh').hidden=!state.user;
-if(state.user)await pull(true);else {setStatus('Cloud sat op. Log ind via e-mail for at synkronisere.');window.importPhotoExamplesOnce?.();}
-state.client.auth.onAuthStateChange((_ev,s)=>{const id=s?.user?.id;if(id&&id!==state.user?.id){state.user=s.user;state.ready=false;setTimeout(()=>pull(true).catch(e=>setStatus(e.message)),0)}else if(!id){state.user=null;state.ready=false;setStatus('Logget ud. Lokal tilstand.')}document.getElementById('cloud-login').hidden=!!id;document.getElementById('cloud-reset').hidden=!!id;document.getElementById('cloud-magic').hidden=!!id;document.getElementById('cloud-logout').hidden=!id;document.getElementById('cloud-refresh').hidden=!id});
+state.user=session?.user||state.user||null;authButtons();
+if(state.user)await pull(true);
+else{
+ setStatus('Cloud sat op. Log ind via e-mail for at synkronisere.');
+ window.importPhotoExamplesOnce?.();
+}
 }catch(e){setStatus('Opsætningsfejl: '+e.message)}}
 async function pull(initial=false){if(!state.client||!state.user)return;state.ready=false;
 const {data,error}=await state.client.from('wines').select('id,data').eq('user_id',state.user.id).limit(10000);if(error)throw error;
