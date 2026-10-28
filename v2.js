@@ -2,6 +2,8 @@
 // Ingen ændringer i Supabase, ingen automatisk import.
 (function(){
 'use strict';
+// Ingen lokal redigering før cloud har meldt klar.
+window.cloudCanEdit=()=>false;
 const e=id=>document.getElementById(id);
 const typeButtons=[
  ['all','Alle'],['Rødvin','Rødvin'],['Hvidvin','Hvidvin'],
