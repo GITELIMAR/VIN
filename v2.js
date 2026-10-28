@@ -16,7 +16,7 @@ overview.addEventListener('click',event=>{
  panel.scrollIntoView({behavior:'smooth',block:'start'});
 });
 const heading=document.createElement('div');heading.className='v2-section-title';
-heading.innerHTML='<h2>Alle vine</h2><span id="v2-list-count"></span>';
+heading.innerHTML='<h2>Alle vine</h2>';
 e('items').before(heading);
 const cloudLabel=document.createElement('div');cloudLabel.id='v2-cloud-indicator';
 cloudLabel.innerHTML='<span id="v2-cloud-dot"></span><span id="v2-cloud-text">Kontrollerer cloud…</span>';
@@ -100,7 +100,6 @@ window.render=function(){
   const label=document.createElement('span');label.textContent=type+' · flasker';
   button.append(number,label);overviewStats.append(button);
  }
- e('v2-list-count').textContent=visible.length+' af '+wines.length+' vine';
  e('items').innerHTML=visible.length?visible.map(card).join(''):'<div class="empty">Ingen vine matcher filtrene. Prøv en anden kategori eller søgning.</div>';
  renderSoon();
  if(typeof renderTasteProfile==='function')renderTasteProfile();
