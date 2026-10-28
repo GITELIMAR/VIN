@@ -11,8 +11,8 @@ const typeButtons=[
  ['Dessertvin','Dessert & port'],['Rosé','Rosé']
 ];
 let category='all';
-const categoryButtons=document.querySelector('#explore-panel .v2-filter-buttons');
-if(!categoryButtons)throw Error('Vintypefiltre mangler i Udforsk samlingen');
+const categoryButtons=document.querySelector('#overview-panel .v2-filter-buttons');
+if(!categoryButtons)throw Error('Vintypefiltre mangler i Overblik');
 function selectCategory(value){category=value;categoryButtons.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.type===value)));render()}
 for(const [value,label] of typeButtons){
  const button=document.createElement('button');button.type='button';button.textContent=label;
