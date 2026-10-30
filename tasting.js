@@ -56,7 +56,7 @@ function scoreCandidate(candidate){
  const baseHits=baseTerms.filter(t=>s.includes(normalize(t))).length,avoidHits=avoidTerms.filter(t=>s.includes(normalize(t))).length;
  const sensory=candidate.sensory_profile||{};
  const confidence=sensory.confidence==='high'?1:sensory.confidence==='medium'?.6:.2;
- const sensoryFit=(sensory.body==='full'?.10:sensory.body==='medium_full'?.07:0)+(sensory.texture==='creamy'?.10:sensory.texture==='rich'?.06:0)+(sensory.fruit==='ripe'||sensory.fruit==='mature'?.06:0)-(sensory.acidity==='high'?.12:sensory.acidity==='medium_high'?.035:0);
+ const sensoryFit=(sensory.body==='full'?.10:sensory.body==='medium_full'?.07:0)+(sensory.texture==='creamy'?.10:sensory.texture==='rich'?.06:0)+((sensory.fruit==='ripe'||sensory.fruit==='mature')?.06:0)-(sensory.acidity==='high'?.12:sensory.acidity==='medium_high'?.035:0);
  const champagneFit=candidate.type==='Champagne'?(sensory.body==='medium_full'||sensory.body==='full'?.07:0)+(sensory.texture==='creamy'?.09:0)+(sensory.fruit==='mature'?.07:sensory.fruit==='ripe'?.04:0)+(sensory.maturity==='mature'?.05:0):0;
  const baseline=Math.max(0,Math.min(1,.5+.12*baseHits-.25*avoidHits+confidence*sensoryFit+confidence*champagneFit));
  // A direct tasting is authoritative, but the profile adjusts the position within its band.
