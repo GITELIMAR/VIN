@@ -43,6 +43,9 @@ function scoreCandidate(candidate){
  const fav=cellar.filter(w=>w.favorite);
  const ratingMap=new Map();for(const t of allTastings){const key=normalize(t.wine_id||[t.wine_name,t.vintage].join('|'));if(!ratingMap.has(key))ratingMap.set(key,t)}
  const rated=[...ratingMap.values()];
+ const exactRatings=rated.filter(t=>{if(candidate.id&&t.wine_id&&String(candidate.id)===String(t.wine_id))return true;const candidateName=normalize([candidate.producer,candidate.name].filter(Boolean).join(' '));const tastingName=normalize(t.wine_name||'');return candidateName.length>5&&tastingName.length>5&&(candidateName===tastingName||candidateName.includes(tastingName)||tastingName.includes(candidateName))&&(!candidate.year||!t.vintage||String(candidate.year)===String(t.vintage));});
+ if(exactRatings.length){const direct=exactRatings[0];if(direct.rating==='down')return {score:10,weights:{answers:0,favorites:0,ratings:100},evidence:{direct:true,negative:true}};if(direct.rating==='up')return {score:95,weights:{answers:0,favorites:0,ratings:100},evidence:{direct:true,positive:true}};}
+
  const matching=w=>{const text=normalize([w.producer,w.name,w.region,w.country,w.type].filter(Boolean).join(' '));const tokens=[w.producer,w.name,w.region,w.type].map(normalize).filter(x=>x.length>=4);return tokens.some(t=>s.includes(t))||[candidate.name,candidate.region,candidate.type].map(normalize).filter(x=>x.length>=4).some(t=>text.includes(t))};
  const baseHits=baseTerms.filter(t=>s.includes(normalize(t))).length,avoidHits=avoidTerms.filter(t=>s.includes(normalize(t))).length;
  const baseline=Math.max(0,Math.min(1,.5+.12*baseHits-.25*avoidHits));
