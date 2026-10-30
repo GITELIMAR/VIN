@@ -61,7 +61,7 @@ function scoreCandidate(candidate){
  const evidenceScale=Math.min(1,(baseHits+avoidHits)/3); const baseline=Math.max(0,Math.min(1,.5+evidenceScale*(.12*baseHits-.25*avoidHits)+confidence*sensoryFit+confidence*champagneFit));
  // A direct tasting is authoritative, but the profile adjusts the position within its band.
  // These are calibrated preference estimates, not user-entered 0–100 ratings.
- if(exactRatings.length){const direct=exactRatings[0];const bands={down:[20,45],same:[45,65],up:[75,98]};const band=bands[direct.rating];if(band){const adjusted=Math.round(band[0]+(band[1]-band[0])*baseline);return {score:adjusted,weights:{answers:20,favorites:0,ratings:80},evidence:{direct:true,verdict:direct.rating,baseHits,avoidHits}};}}
+ if(exactRatings.length){const direct=exactRatings[0];const bands={down:[20,45],same:[45,65],up:[75,98]};const band=bands[direct.rating];if(band){const adjusted=Math.round(band[0]+(band[1]-band[0])*baseline);return {score:adjusted,confidence:'high',weights:{answers:20,favorites:0,ratings:80},evidence:{direct:true,verdict:direct.rating,baseHits,avoidHits}};}}
 
  const favoriteHits=fav.filter(matching).length;const favoriteScore=favoriteHits?Math.min(1,.5+.25*favoriteHits):null;
  const matchedRated=rated.filter(t=>{const w=cellar.find(w=>String(w.id)===String(t.wine_id));return w?matching(w):s.includes(normalize(t.wine_name))});
