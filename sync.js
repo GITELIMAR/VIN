@@ -13,7 +13,7 @@ const key='vin-supabase-settings';
 // Kun publishable key – ingen adgangskoder eller hemmelige nøgler.
 const DEFAULT_CLOUD={url:'https://cnygxkvyjzyqlhytzvsr.supabase.co',anon:'sb_publishable_BH8HekyCWghzO0jKjBC3SA_tueFlGFj'};
 const cfg=()=>{try{const saved=JSON.parse(localStorage.getItem(key)||'null');return saved?.url&&saved?.anon?saved:DEFAULT_CLOUD}catch{return DEFAULT_CLOUD}};
-const setStatus=s=>{status.textContent=s;window.updateCloudStatus?.(s)};
+const setStatus=s=>{status.textContent=s.replace(/^Cloud synkroniseret · \d+ vine$/,'Synkroniseret');window.updateCloudStatus?.(s)};
 const validCloud=c=>c&&/^https:\/\/[a-z0-9.-]+\.supabase\.co\/?$/i.test(String(c.url||''))&&typeof c.anon==='string'&&c.anon.length>20&&!/service_role|sb_secret_/i.test(c.anon);
 const mobileBtn=document.getElementById('cloud-mobile-link');
 mobileBtn.hidden=!validCloud(cfg());
