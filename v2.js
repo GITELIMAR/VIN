@@ -68,6 +68,7 @@ window.render=function(){
  const typeOrder=['Rødvin','Hvidvin','Champagne','Mousserende','Rosé','Dessertvin','Andet'];
  const categoryRank=w=>{const rank=typeOrder.indexOf(w.type);return rank<0?typeOrder.length:rank};
  visible.sort((a,b)=>{
+  if(sort==='taste'){const sa=typeof window.vinTasteScore==='function'?window.vinTasteScore(a)?.score:null;const sb=typeof window.vinTasteScore==='function'?window.vinTasteScore(b)?.score:null;if(sa!==null&&sb!==null&&sa!==sb)return sb-sa;if((sa!==null)!==(sb!==null))return sa===null?1:-1;return stable(a,b)}
   if(sort==='year')return (Number(b.year)||0)-(Number(a.year)||0)||stable(a,b);
   if(sort==='count')return count(b)-count(a)||stable(a,b);
   if(sort==='rating'){
