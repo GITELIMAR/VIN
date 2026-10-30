@@ -107,9 +107,9 @@ window.render=function(){
  typeSelector.value=category;
  heading.querySelector('h2').textContent=category==='all'?'Alle vine':category;
  const overviewStats=e('overview-stats');
- overviewStats.querySelectorAll('[data-overview-type]:not([data-overview-type="all"])').forEach(node=>node.remove());
+ overviewStats.querySelectorAll('[data-overview-dynamic="true"]').forEach(node=>node.remove());
  for(const [type,n] of types){
-  const button=document.createElement('button');button.type='button';button.className='stat stat-nav';button.dataset.overviewType=type;button.setAttribute('aria-label','Vis '+type+' i samlingen');
+  const button=document.createElement('button');button.type='button';button.className='stat stat-nav';button.dataset.overviewType=type;button.dataset.overviewDynamic='true';button.setAttribute('aria-label','Vis '+type+' i samlingen');
   const number=document.createElement('strong');number.textContent=n;
   const label=document.createElement('span');label.textContent=type+' · flasker';
   button.append(number,label);overviewStats.append(button);
