@@ -21,7 +21,7 @@ function learn(all){
  const unique=new Map();for(const t of all){const k=(t.wine_id||[t.wine_name,t.vintage].join('|')).toLowerCase();if(!unique.has(k))unique.set(k,t)}
  const votes=[...unique.values()];const groups=new Map();
  const cellar=typeof wines!=='undefined'?wines:[];
- for(const t of votes){const w=cellar.find(w=>String(w.id)===String(t.wine_id))||cellar.find(w=>[w.producer,w.name].filter(Boolean).join(' ').toLocaleLowerCase('da')===String(t.wine_name).toLocaleLowerCase('da')&&String(w.year||'')===String(t.vintage||''));if(!w)continue;
+ for(const t of votes){const w=cellar.find(w=>String(w.id)===String(t.wine_id))||cellar.find(w=>[w.producer,w.name].filter(Boolean).join(' ').toLocaleLowerCase('da')===String(t.wine_name).toLocaleLowerCase('da')&&String(w.year||'')===String(t.vintage||''));const details={...(w||{}),...(t.wine_details||{})};if(!w&&!Object.values(t.wine_details||{}).some(Boolean))continue;
  for(const [kind,val] of [['type',details.type],['country',details.country],['region',details.region]]){if(!val)continue;const k=kind+'|'+String(val).trim().toLocaleLowerCase('da');if(!groups.has(k))groups.set(k,{kind,name:String(val).trim(),up:0,same:0,down:0});groups.get(k)[t.rating]++}}
  const qualified=[...groups.values()].filter(g=>g.up+g.same+g.down>=3).sort((a,b)=>(b.up-b.down)-(a.up-a.down));
  const positive=qualified.filter(g=>g.up>=2&&g.up>g.down).slice(0,3),negative=qualified.filter(g=>g.down>=2&&g.down>g.up).slice(0,2);
