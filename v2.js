@@ -25,7 +25,7 @@ heading.innerHTML='<h2>Alle vine</h2>';
 e('items').before(heading);
 const cloudLabel=document.createElement('div');cloudLabel.id='v2-cloud-indicator';
 cloudLabel.innerHTML='<span id="v2-cloud-dot"></span><span id="v2-cloud-text">Kontrollerer cloud…</span>';
-(document.querySelector('.top > div')||document.querySelector('header')).append(cloudLabel);
+document.querySelector('main').prepend(cloudLabel);
 window.updateCloudStatus=text=>{
  e('v2-cloud-text').textContent=text;
  const healthy=/^Cloud synkroniseret|^Slettet i cloud|^Klar|^Import gemt/i.test(text);
