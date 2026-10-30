@@ -63,7 +63,7 @@ function scoreCandidate(candidate){
  // These are calibrated preference estimates, not user-entered 0–100 ratings.
  if(exactRatings.length){const direct=exactRatings[0];const bands={down:[20,45],same:[45,65],up:[75,98]};const band=bands[direct.rating];if(band){const adjusted=Math.round(band[0]+(band[1]-band[0])*baseline);return {score:adjusted,weights:{answers:20,favorites:0,ratings:80},evidence:{direct:true,verdict:direct.rating,baseHits,avoidHits}};}}
 
- const favoriteHits=fav.filter(matching).length;const favoriteScore=fav.length?Math.min(1,.5+.25*favoriteHits):null;
+ const favoriteHits=fav.filter(matching).length;const favoriteScore=favoriteHits?Math.min(1,.5+.25*favoriteHits):null;
  const matchedRated=rated.filter(t=>{const w=cellar.find(w=>String(w.id)===String(t.wine_id));return w?matching(w):s.includes(normalize(t.wine_name))});
  const ratingScore=matchedRated.length?matchedRated.reduce((a,t)=>a+({up:1,same:.5,down:0}[t.rating]??.5),0)/matchedRated.length:null;
  // Datatillid: én vurdering kan højst aktivere en tredjedel af vurderingsvægten.
