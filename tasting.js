@@ -44,11 +44,14 @@ function scoreCandidate(candidate){
  const ratingMap=new Map();for(const t of allTastings){const key=normalize(t.wine_id||[t.wine_name,t.vintage].join('|'));if(!ratingMap.has(key))ratingMap.set(key,t)}
  const rated=[...ratingMap.values()];
  const exactRatings=rated.filter(t=>{if(candidate.id&&t.wine_id&&String(candidate.id)===String(t.wine_id))return true;const candidateName=normalize([candidate.producer,candidate.name].filter(Boolean).join(' '));const tastingName=normalize(t.wine_name||'');return candidateName.length>5&&tastingName.length>5&&(candidateName===tastingName||candidateName.includes(tastingName)||tastingName.includes(candidateName))&&(!candidate.year||!t.vintage||String(candidate.year)===String(t.vintage));});
- if(exactRatings.length){const direct=exactRatings[0];if(direct.rating==='down')return {score:10,weights:{answers:0,favorites:0,ratings:100},evidence:{direct:true,negative:true}};if(direct.rating==='up')return {score:95,weights:{answers:0,favorites:0,ratings:100},evidence:{direct:true,positive:true}};}
 
  const matching=w=>{const text=normalize([w.producer,w.name,w.region,w.country,w.type].filter(Boolean).join(' '));const tokens=[w.producer,w.name,w.region,w.type].map(normalize).filter(x=>x.length>=4);return tokens.some(t=>s.includes(t))||[candidate.name,candidate.region,candidate.type].map(normalize).filter(x=>x.length>=4).some(t=>text.includes(t))};
  const baseHits=baseTerms.filter(t=>s.includes(normalize(t))).length,avoidHits=avoidTerms.filter(t=>s.includes(normalize(t))).length;
  const baseline=Math.max(0,Math.min(1,.5+.12*baseHits-.25*avoidHits));
+ // A direct tasting is authoritative, but the profile adjusts the position within its band.
+ // These are calibrated preference estimates, not user-entered 0–100 ratings.
+ if(exactRatings.length){const direct=exactRatings[0];const bands={down:[20,45],same:[45,65],up:[75,98]};const band=bands[direct.rating];if(band){const adjusted=Math.round(band[0]+(band[1]-band[0])*baseline);return {score:adjusted,weights:{answers:20,favorites:0,ratings:80},evidence:{direct:true,verdict:direct.rating,baseHits,avoidHits}};}}
+
  const favoriteHits=fav.filter(matching).length;const favoriteScore=fav.length?Math.min(1,.5+.25*favoriteHits):null;
  const matchedRated=rated.filter(t=>{const w=cellar.find(w=>String(w.id)===String(t.wine_id));return w?matching(w):s.includes(normalize(t.wine_name))});
  const ratingScore=matchedRated.length?matchedRated.reduce((a,t)=>a+({up:1,same:.5,down:0}[t.rating]??.5),0)/matchedRated.length:null;
