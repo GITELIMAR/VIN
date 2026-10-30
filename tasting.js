@@ -47,7 +47,10 @@ function scoreCandidate(candidate){
 
  const matching=w=>{const text=normalize([w.producer,w.name,w.region,w.country,w.type].filter(Boolean).join(' '));const tokens=[w.producer,w.name,w.region,w.type].map(normalize).filter(x=>x.length>=4);return tokens.some(t=>s.includes(t))||[candidate.name,candidate.region,candidate.type].map(normalize).filter(x=>x.length>=4).some(t=>text.includes(t))};
  const baseHits=baseTerms.filter(t=>s.includes(normalize(t))).length,avoidHits=avoidTerms.filter(t=>s.includes(normalize(t))).length;
- const baseline=Math.max(0,Math.min(1,.5+.12*baseHits-.25*avoidHits));
+ const sensory=candidate.sensory_profile||{};
+ const confidence=sensory.confidence==='high'?1:sensory.confidence==='medium'?.6:.2;
+ const sensoryFit=(sensory.body==='full'?.10:sensory.body==='medium_full'?.07:0)+(sensory.texture==='creamy'?.10:sensory.texture==='rich'?.06:0)+(sensory.fruit==='ripe'||sensory.fruit==='mature'?.06:0)-(sensory.acidity==='high'?.12:sensory.acidity==='medium_high'?.035:0);
+ const baseline=Math.max(0,Math.min(1,.5+.12*baseHits-.25*avoidHits+confidence*sensoryFit));
  // A direct tasting is authoritative, but the profile adjusts the position within its band.
  // These are calibrated preference estimates, not user-entered 0–100 ratings.
  if(exactRatings.length){const direct=exactRatings[0];const bands={down:[20,45],same:[45,65],up:[75,98]};const band=bands[direct.rating];if(band){const adjusted=Math.round(band[0]+(band[1]-band[0])*baseline);return {score:adjusted,weights:{answers:20,favorites:0,ratings:80},evidence:{direct:true,verdict:direct.rating,baseHits,avoidHits}};}}
