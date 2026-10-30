@@ -45,7 +45,14 @@ function scoreCandidate(candidate){
  const rated=[...ratingMap.values()];
  const exactRatings=rated.filter(t=>{if(candidate.id&&t.wine_id&&String(candidate.id)===String(t.wine_id))return true;const candidateName=normalize([candidate.producer,candidate.name].filter(Boolean).join(' '));const tastingName=normalize(t.wine_name||'');return candidateName.length>5&&tastingName.length>5&&(candidateName===tastingName||candidateName.includes(tastingName)||tastingName.includes(candidateName))&&(!candidate.year||!t.vintage||String(candidate.year)===String(t.vintage));});
 
- const matching=w=>{const text=normalize([w.producer,w.name,w.region,w.country,w.type].filter(Boolean).join(' '));const tokens=[w.producer,w.name,w.region,w.type].map(normalize).filter(x=>x.length>=4);return tokens.some(t=>s.includes(t))||[candidate.name,candidate.region,candidate.type].map(normalize).filter(x=>x.length>=4).some(t=>text.includes(t))};
+ const matching=w=>{const a=normalize([w.producer,w.name].filter(Boolean).join(' '));const b=normalize([candidate.producer,candidate.name].filter(Boolean).join(' '));return a.length>5&&b.length>5&&(a===b||a.includes(b)||b.includes(a));};
+ // Learn from the sensory characteristics of personally liked and disliked wines.
+ const attributes=['body','acidity','fruit','texture','oak','maturity'];
+ const sensorySimilarity=(a,b)=>{const x=a?.sensory_profile||{},y=b?.sensory_profile||{};let matched=0,total=0;for(const k of attributes){if(!x[k]||!y[k]||x[k]==='unknown'||y[k]==='unknown')continue;total++;if(x[k]===y[k])matched++;}return total>=2?matched/total:null;};
+ const learned=[];
+ for(const w of cellar){const own=rated.find(t=>String(t.wine_id)===String(w.id));const sentiment=own?.rating==='down'?-1:own?.rating==='up'?1:own?.rating==='same'?0:w.favorite?0.7:null;if(sentiment===null||String(w.id)===String(candidate.id))continue;const similarity=sensorySimilarity(candidate,w);if(similarity===null)continue;const trust=w.sensory_profile?.confidence==='high'?1:w.sensory_profile?.confidence==='medium'?.65:.25;learned.push({sentiment,similarity,trust});}
+ const relevant=learned.filter(x=>x.similarity>=.5).sort((a,b)=>b.similarity*b.trust-a.similarity*a.trust).slice(0,8);
+ const learnedSignal=relevant.length?relevant.reduce((sum,x)=>sum+x.sentiment*x.similarity*x.trust,0)/relevant.reduce((sum,x)=>sum+x.similarity*x.trust,0):0;
  const baseHits=baseTerms.filter(t=>s.includes(normalize(t))).length,avoidHits=avoidTerms.filter(t=>s.includes(normalize(t))).length;
  const sensory=candidate.sensory_profile||{};
  const confidence=sensory.confidence==='high'?1:sensory.confidence==='medium'?.6:.2;
@@ -61,7 +68,7 @@ function scoreCandidate(candidate){
  // Datatillid: én vurdering kan højst aktivere en tredjedel af vurderingsvægten.
  const weights={answers:.2,favorites:favoriteScore===null?0:.4,ratings:ratingScore===null?0:.4*Math.min(1,rated.length/3)};
  const total=weights.answers+weights.favorites+weights.ratings;
- const inferred=(baseline*weights.answers+(favoriteScore??0)*weights.favorites+(ratingScore??0)*weights.ratings)/total;
+ const inferred=Math.max(0,Math.min(1,(baseline*weights.answers+(favoriteScore??0)*weights.favorites+(ratingScore??0)*weights.ratings)/total+Math.max(-.18,Math.min(.18,learnedSignal*.18))));
  // An explicit favorite on this exact cellar entry outweighs broad type/region matches.
  const score=candidate.favorite===true||candidate.favorite==='true'?Math.max(.84,Math.min(.96,inferred+.12)):inferred;
  return {score:Math.round(score*100),weights:{answers:Math.round(weights.answers/total*100),favorites:Math.round(weights.favorites/total*100),ratings:Math.round(weights.ratings/total*100)},evidence:{favoriteHits,matchedRatings:matchedRated.length,baseHits}};
