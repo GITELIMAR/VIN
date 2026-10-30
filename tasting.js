@@ -48,7 +48,7 @@ function scoreCandidate(candidate){
  const matching=w=>{const a=normalize([w.producer,w.name].filter(Boolean).join(' '));const b=normalize([candidate.producer,candidate.name].filter(Boolean).join(' '));return a.length>5&&b.length>5&&(a===b||a.includes(b)||b.includes(a));};
  // Learn from the sensory characteristics of personally liked and disliked wines.
  const attributes=['body','acidity','fruit','texture','oak','maturity'];
- const sensorySimilarity=(a,b)=>{const x=a?.sensory_profile||{},y=b?.sensory_profile||{};let matched=0,total=0;for(const k of attributes){if(!x[k]||!y[k]||x[k]==='unknown'||y[k]==='unknown')continue;total++;if(x[k]===y[k])matched++;}return total>=2?matched/total:null;};
+ const sensorySimilarity=(a,b)=>{const x=a?.sensory_profile||{},y=b?.sensory_profile||{};let matched=0,total=0;for(const k of attributes){if(!x[k]||!y[k]||x[k]==='unknown'||y[k]==='unknown')continue;total++;if(x[k]===y[k])matched++;}return total>=3?matched/total:null;};
  const learned=[];
  for(const w of cellar){const own=rated.find(t=>String(t.wine_id)===String(w.id));const sentiment=own?.rating==='down'?-1:own?.rating==='up'?1:own?.rating==='same'?0:w.favorite?0.7:null;if(sentiment===null||String(w.id)===String(candidate.id))continue;const similarity=sensorySimilarity(candidate,w);if(similarity===null)continue;const trust=w.sensory_profile?.confidence==='high'?1:w.sensory_profile?.confidence==='medium'?.65:.25;learned.push({sentiment,similarity,trust});}
  const relevant=learned.filter(x=>x.similarity>=.5).sort((a,b)=>b.similarity*b.trust-a.similarity*a.trust).slice(0,8);
