@@ -48,7 +48,7 @@ function renderSoon(){
 function card(w){
  const wineType=String(w.type||'');
  const categoryClass=wineType==='Hvidvin'?'white':wineType==='Champagne'||wineType==='Mousserende'?'sparkling':'red';
- const s=status(w),r=score(w);const taste=typeof window.vinTasteScore==='function'?window.vinTasteScore(w):null;const tasteHtml=taste?'<div class="meta">Personligt smagsmatch: <strong>'+taste.score+' / 100</strong></div>':'';
+ const s=status(w),r=score(w);const taste=typeof window.vinTasteScore==='function'?window.vinTasteScore(w):null;const tasteHtml=taste?'<div class="meta">Personligt smagsmatch: <strong>'+taste.score+' / 100</strong>'+(taste.confidence?' · '+({high:'Høj',medium:'Middel',low:'Lav'}[taste.confidence]||'Lav')+' sikkerhed':'')+'</div>':'';
  const ratingHtml=r?'<div class="v2-rating"><strong>'+h(Number.isInteger(r.value)?r.value:r.value.toFixed(1))+'/100</strong>'+h(r.label)+(r.details?'<small>'+h(r.details)+'</small>':'')+(r.url&&/^https:\/\//i.test(r.url)?'<small><a href="'+h(r.url)+'" target="_blank" rel="noopener noreferrer">Se kilde</a></small>':'')+'</div>':'';
  const reviews=Array.isArray(w.reviews)?w.reviews.filter(x=>x.kind==='anmeldelse'&&Number.isFinite(Number(x.score))):[];
  const links=reviews.length?'<details class="v2-details"><summary>Alle dokumenterede anmeldelser ('+reviews.length+')</summary>'+reviews.map(x=>'<p><strong>'+h(x.score)+'/100 · '+h(x.source)+'</strong>'+(x.url&&/^https:\/\//i.test(x.url)?' · <a href="'+h(x.url)+'" target="_blank" rel="noopener noreferrer">Kilde</a>':'')+(x.context?' · '+h(x.context):'')+'</p>').join('')+'</details>':'';
