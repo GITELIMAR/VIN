@@ -38,7 +38,7 @@ async function weeklyLoad(){const status=$('weekly-status'),box=$('weekly-list')
 // Versionskontrol: forespørgsel med unik URL omgår caches på iOS og GitHub Pages.
 // Undgå automatisk reload: ændringer i felter eller en verserende cloudskrivning må ikke mistes.
 (function(){
- const current='28.55';
+ const current=document.getElementById('build-version')?.textContent.match(/BUILD (\d+\.\d+)/)?.[1]||'28.66';
  const banner=document.getElementById('update-notice');
  const button=document.getElementById('update-now');
  let latest='',lastCheck=0,checking=false;
