@@ -23,15 +23,6 @@ e('wine-type-filter').addEventListener('change',event=>selectCategory(event.targ
 const heading=document.createElement('div');heading.className='v2-section-title';
 heading.innerHTML='<h2>Alle vine</h2>';
 e('items').before(heading);
-const cloudLabel=document.createElement('div');cloudLabel.id='v2-cloud-indicator';
-cloudLabel.innerHTML='<span id="v2-cloud-dot"></span><span id="v2-cloud-text">Kontrollerer cloud…</span>';
-document.querySelector('main').prepend(cloudLabel);
-window.updateCloudStatus=text=>{
- e('v2-cloud-text').textContent=text;
- const healthy=/^Cloud synkroniseret|^Slettet i cloud|^Klar|^Import gemt/i.test(text);
- const warning=/fejl|advarsel|konflikt|ikke synkroniseret|logget ud/i.test(text);
- e('v2-cloud-dot').style.background=healthy?'#8cce9b':warning?'#e7a183':'#c5ba7a';
-};
 e('sample').hidden=true; // Demoindhold hører ikke til i ejerens produktionssamling.
 e('sample').disabled=true;
 // Build vises kun i #build-version i index.html.
