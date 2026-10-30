@@ -61,7 +61,9 @@ function scoreCandidate(candidate){
  // Datatillid: én vurdering kan højst aktivere en tredjedel af vurderingsvægten.
  const weights={answers:.2,favorites:favoriteScore===null?0:.4,ratings:ratingScore===null?0:.4*Math.min(1,rated.length/3)};
  const total=weights.answers+weights.favorites+weights.ratings;
- const score=(baseline*weights.answers+(favoriteScore??0)*weights.favorites+(ratingScore??0)*weights.ratings)/total;
+ const inferred=(baseline*weights.answers+(favoriteScore??0)*weights.favorites+(ratingScore??0)*weights.ratings)/total;
+ // An explicit favorite on this exact cellar entry outweighs broad type/region matches.
+ const score=candidate.favorite===true||candidate.favorite==='true'?Math.max(.84,Math.min(.96,inferred+.12)):inferred;
  return {score:Math.round(score*100),weights:{answers:Math.round(weights.answers/total*100),favorites:Math.round(weights.favorites/total*100),ratings:Math.round(weights.ratings/total*100)},evidence:{favoriteHits,matchedRatings:matchedRated.length,baseHits}};
 }
 window.vinTasteScore=scoreCandidate;if(typeof window.render==='function')window.render();
