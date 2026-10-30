@@ -56,8 +56,9 @@ function scoreCandidate(candidate){
  const baseHits=baseTerms.filter(t=>s.includes(normalize(t))).length,avoidHits=avoidTerms.filter(t=>s.includes(normalize(t))).length;
  const sensory=candidate.sensory_profile||{};
  const confidence=sensory.confidence==='high'?1:sensory.confidence==='medium'?.6:.2;
+ const isChampagne=normalize(candidate.type).includes('champagne')||normalize(candidate.name).includes('champagne');
  const sensoryFit=(sensory.body==='full'?.10:sensory.body==='medium_full'?.07:0)+(sensory.texture==='creamy'?.10:sensory.texture==='rich'?.06:0)+((sensory.fruit==='ripe'||sensory.fruit==='mature')?.06:0)-(sensory.acidity==='high'?.12:sensory.acidity==='medium_high'?.035:0);
- const champagneFit=candidate.type==='Champagne'?(sensory.body==='medium_full'||sensory.body==='full'?.07:0)+(sensory.texture==='creamy'?.09:0)+(sensory.fruit==='mature'?.07:sensory.fruit==='ripe'?.04:0)+(sensory.maturity==='mature'?.05:0):0;
+ const champagneFit=isChampagne?(sensory.body==='medium_full'||sensory.body==='full'?.07:0)+(sensory.texture==='creamy'?.09:0)+(sensory.fruit==='mature'?.07:sensory.fruit==='ripe'?.04:0)+(sensory.maturity==='mature'?.05:0):0;
  const evidenceScale=Math.min(1,(baseHits+avoidHits)/3); const baseline=Math.max(0,Math.min(1,.5+evidenceScale*(.12*baseHits-.25*avoidHits)+confidence*sensoryFit+confidence*champagneFit));
  // A direct tasting is authoritative, but the profile adjusts the position within its band.
  // These are calibrated preference estimates, not user-entered 0–100 ratings.
@@ -69,7 +70,7 @@ function scoreCandidate(candidate){
  // Datatillid: én vurdering kan højst aktivere en tredjedel af vurderingsvægten.
  const weights={answers:.2,favorites:favoriteScore===null?0:.4,ratings:ratingScore===null?0:.4*Math.min(1,rated.length/3)};
  const total=weights.answers+weights.favorites+weights.ratings;
- const inferred=Math.max(0,Math.min(1,(baseline*weights.answers+(favoriteScore??0)*weights.favorites+(ratingScore??0)*weights.ratings)/total+Math.max(-.18,Math.min(.18,learnedSignal*.18*learnedReliability))+(candidate.type==='Champagne'?confidence*champagneFit*.55:0)));
+ const inferred=Math.max(0,Math.min(1,(baseline*weights.answers+(favoriteScore??0)*weights.favorites+(ratingScore??0)*weights.ratings)/total+Math.max(-.18,Math.min(.18,learnedSignal*.18*learnedReliability))+(isChampagne?confidence*champagneFit*.55:0)));
  // An explicit favorite on this exact cellar entry outweighs broad type/region matches.
  const score=candidate.favorite===true||candidate.favorite==='true'?Math.max(.84,Math.min(.96,inferred+.12)):inferred;
  return {score:Math.round(score*100),confidence:(sensory.confidence==='high'&&relevant.length>=2)?'high':(sensory.confidence==='medium'||baseHits>=2||relevant.length>=1)?'medium':'low',weights:{answers:Math.round(weights.answers/total*100),favorites:Math.round(weights.favorites/total*100),ratings:Math.round(weights.ratings/total*100)},evidence:{favoriteHits,matchedRatings:matchedRated.length,baseHits}};
