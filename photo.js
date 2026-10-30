@@ -10,12 +10,12 @@ btn.disabled=true;btn.textContent='Læser etiketten…';
 try{await loadScript();const worker=await Tesseract.createWorker('eng');let result;
 try{result=await worker.recognize(file)}finally{await worker.terminate()}
 const lines=result.data.text.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
-const joined=lines.join(' ');const match=joined.match(/\b(19[5-9]\d|20\d{2})\b/);
+const joined=lines.join(' ');const match=joined.match(/\b(19[5-9]\d|20\d{2})\b/);const sharedYear=window.parseWineLabel?.(result.data.text)?.year;
 openEditor();
 const f=document.getElementById('form');
 f.elements.producer.value=(lines[0]||'').slice(0,100);
 f.elements.name.value=(window.parseWineLabel?.(result.data.text)?.name||lines.slice(1,3).join(' ')||lines[0]||'').slice(0,120);
-f.elements.year.value=match?match[0]:'';
+f.elements.year.value=sharedYear||(match?match[0]:'');
 const low=joined.toLowerCase();
 if(/champagne/.test(low)){f.elements.type.value='Champagne';f.elements.country.value='Frankrig';f.elements.region.value='Champagne'}
 else if(/sauternes/.test(low)){f.elements.type.value='Dessertvin';f.elements.country.value='Frankrig';f.elements.region.value='Sauternes'}
