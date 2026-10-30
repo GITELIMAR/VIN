@@ -108,7 +108,7 @@ window.render=function(){
  heading.querySelector('h2').textContent=category==='all'?'Alle vine':category;
  const overviewStats=e('overview-stats');
  overviewStats.querySelectorAll('[data-overview-dynamic="true"]').forEach(node=>node.remove());
- for(const [type,n] of types){
+ for(const [type,n] of types.filter(([type])=>!['Rødvin','Hvidvin','Champagne'].includes(type))){
   const button=document.createElement('button');button.type='button';button.className='stat stat-nav';button.dataset.overviewType=type;button.dataset.overviewDynamic='true';button.setAttribute('aria-label','Vis '+type+' i samlingen');
   const number=document.createElement('strong');number.textContent=n;
   const label=document.createElement('span');label.textContent=type+' · flasker';
