@@ -56,9 +56,9 @@ function scoreCandidate(candidate, options={}){
  const ordinal={
   body:{light:0,medium_light:1,medium:2,medium_full:3,full:4},
   acidity:{low:0,medium_low:1,medium:2,medium_high:3,high:4},
-  fruit:{fresh:0,ripe:2,mature:3},
-  texture:{lean:0,crisp:1,round:2,rich:3,creamy:3},
-  oak:{none:0,low:1,medium:2,high:3},
+  fruit:{fresh:0,ripe:2,jammy:2,mature:3,dried:3},
+  texture:{lean:0,crisp:1,round:2,smooth:2,rich:3,creamy:3,velvety:3,silky:3},
+  oak:{none:0,low:1,present:2,medium:2,high:3},
   maturity:{young:0,developing:1,mature:2}
  };
  const profile=w=>w?.sensory_profile||{};
@@ -77,23 +77,40 @@ function scoreCandidate(candidate, options={}){
  };
  const textOf=w=>norm([w.name,w.producer,w.type,w.region,w.country,w.grapes,w.notes].filter(Boolean).join(' '));
  const text=textOf(candidate);
- const type=norm(candidate.type);
+ const type=norm(candidate.type),name=norm(candidate.name),region=norm(candidate.region);
  const isChampagne=type.includes('champagne')||type.includes('mousserende');
- const typeTerms=isChampagne?['blanc de blancs','champagne','brioche','cremet','moden']:type.includes('hvid')?['chardonnay','viognier','cremet','fyldig','moden']:type.includes('dessert')||type.includes('port')?['px','pedro ximenez','sauternes','moden']:['ribera del duero','toro','rhone','chateauneuf','fyldig','moden'];
+ const isDessert=type.includes('dessert')||type.includes('port')||name.includes('pedro ximenez')||name.includes('don px')||name.includes('sauternes');
+ const isWhite=!isChampagne&&!isDessert&&(type.includes('hvid')||type.includes('white'));
+ const isRed=!isChampagne&&!isDessert&&!isWhite;
+ const typeTerms=isChampagne?['blanc de blancs','champagne','brioche','cremet','moden']:isDessert?['px','pedro ximenez','sauternes','don px','moden']:isWhite?['chardonnay','viognier','cremet','fyldig','moden']:['ribera del duero','toro','rhone','chateauneuf','fyldig','moden'];
  const positiveTerms=typeTerms.filter(t=>text.includes(norm(t))).length;
  const negativeTerms=['skarp syre','meget syrlig','grøn sauvignon','ung chablis'].filter(t=>text.includes(norm(t))).length;
  const p=profile(candidate);
  const isKnown=k=>p[k]&&p[k]!=='unknown';
+ const rich=['rich','creamy','velvety','round','silky','smooth'].includes(p.texture);
+ const ripe=['ripe','mature','dried','jammy'].includes(p.fruit);
+ const full=['full','medium_full'].includes(p.body);
  let prior=.60;
- prior+=Math.min(.12,positiveTerms*.035)-Math.min(.18,negativeTerms*.09);
+ prior+=Math.min(.10,positiveTerms*.03)-Math.min(.16,negativeTerms*.08);
  if(isKnown('body'))prior+=p.body==='full'?.065:p.body==='medium_full'?.045:p.body==='light'?-.045:0;
- if(isKnown('texture'))prior+=p.texture==='creamy'?.07:p.texture==='rich'?.055:p.texture==='round'?.025:p.texture==='lean'?-.04:0;
- if(isKnown('fruit'))prior+=p.fruit==='ripe'||p.fruit==='mature'?.04:0;
- if(isKnown('acidity')){
-  const balanced=(p.body==='full'||p.body==='medium_full')&&(p.texture==='creamy'||p.texture==='rich'||p.fruit==='ripe'||p.fruit==='mature');
+ if(isKnown('texture'))prior+=rich?(p.texture==='creamy'||p.texture==='velvety'?.07:.055):p.texture==='lean'?-.04:0;
+ if(isKnown('fruit'))prior+=ripe?.045:0;
+ if(isKnown('acidity')&&!isDessert){
+  const balanced=full&&(rich||ripe);
   prior+=p.acidity==='high'?(balanced?-.015:-.10):p.acidity==='medium_high'?(balanced?0:-.035):0;
  }
- if(isChampagne&&p.maturity==='mature')prior+=.04;
+ if(isChampagne){
+  if(p.maturity==='mature')prior+=.045;
+  if(p.texture==='creamy')prior+=.035;
+ }else if(isDessert){
+  if(p.fruit==='dried')prior+=.065;
+  if(rich)prior+=.04;
+  if(p.maturity==='mature')prior+=.035;
+ }else if(isRed){
+  if(p.texture==='velvety'||p.texture==='silky')prior+=.035;
+ }else if(isWhite){
+  if(p.texture==='creamy')prior+=.035;
+ }
  const evidence=[];
  for(const x of rated){
   if(x.key===candidateKey||(candidateId&&x.t.wine_id&&String(x.t.wine_id)===candidateId))continue;
