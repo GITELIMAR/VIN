@@ -50,7 +50,7 @@ function card(w){
  const categoryClass=wineType==='Hvidvin'?'white':wineType==='Champagne'||wineType==='Mousserende'?'sparkling':'red';
  const s=status(w),r=score(w);const taste=typeof window.vinTasteScore==='function'?window.vinTasteScore(w):null;const verdict=taste?.evidence?.directVerdict||null;
  const verdictLabel=({down:'Kan ikke lide',up:'Kan lide',love:'Elsker',same:'Okay'})[verdict]||null;
- const tasteHtml=taste?'<div class="meta" style="margin-top:7px">'+(verdictLabel?'<strong style="color:#d9bd87">Din vurdering: '+h(verdictLabel)+'</strong><div style="margin-top:3px">':'')+'Forudsagt match: <strong>'+taste.score+' / 100</strong>'+(taste.confidence?' · '+({high:'Højt',medium:'Middel',low:'Begrænset'}[taste.confidence]||'Begrænset')+' datagrundlag':'')+(verdictLabel?'</div>':'')+'</div>':'';
+ const tasteHtml=verdictLabel?'<div class="meta" style="margin-top:7px"><strong style="color:#d9bd87">Din vurdering: '+h(verdictLabel)+'</strong><div style="margin-top:3px">Allerede smagt · ingen forudsigelse vises</div></div>':taste?'<div class="meta" style="margin-top:7px">Forudsagt match: <strong>'+taste.score+' / 100</strong> · '+({high:'Højt',medium:'Middel',low:'Begrænset'}[taste.confidence]||'Begrænset')+' datagrundlag</div>':'';
  const ratingHtml=r?'<div class="v2-rating"><strong>'+h(Number.isInteger(r.value)?r.value:r.value.toFixed(1))+'/100</strong>'+h(r.label)+(r.details?'<small>'+h(r.details)+'</small>':'')+(r.url&&/^https:\/\//i.test(r.url)?'<small><a href="'+h(r.url)+'" target="_blank" rel="noopener noreferrer">Se kilde</a></small>':'')+'</div>':'';
  const reviews=Array.isArray(w.reviews)?w.reviews.filter(x=>x.kind==='anmeldelse'&&Number.isFinite(Number(x.score))):[];
  const links=reviews.length?'<details class="v2-details"><summary>Alle dokumenterede anmeldelser ('+reviews.length+')</summary>'+reviews.map(x=>'<p><strong>'+h(x.score)+'/100 · '+h(x.source)+'</strong>'+(x.url&&/^https:\/\//i.test(x.url)?' · <a href="'+h(x.url)+'" target="_blank" rel="noopener noreferrer">Kilde</a>':'')+(x.context?' · '+h(x.context):'')+'</p>').join('')+'</details>':'';
@@ -81,7 +81,7 @@ window.render=function(){
  const typeOrder=['Rødvin','Hvidvin','Champagne','Mousserende','Rosé','Dessertvin','Andet'];
  const categoryRank=w=>{const rank=typeOrder.indexOf(w.type);return rank<0?typeOrder.length:rank};
  visible.sort((a,b)=>{
-  if(sort==='taste'){const sa=typeof window.vinTasteScore==='function'?window.vinTasteScore(a)?.score:null;const sb=typeof window.vinTasteScore==='function'?window.vinTasteScore(b)?.score:null;if(sa!==null&&sb!==null&&sa!==sb)return sb-sa;if((sa!==null)!==(sb!==null))return sa===null?1:-1;return stable(a,b)}
+  if(sort==='taste'){const ta=typeof window.vinTasteScore==='function'?window.vinTasteScore(a):null,tb=typeof window.vinTasteScore==='function'?window.vinTasteScore(b):null;const rank=t=>t?.evidence?.directVerdict==='love'?100:t?.evidence?.directVerdict==='up'?85:t?.evidence?.directVerdict==='same'?50:t?.evidence?.directVerdict==='down'?0:t?.score??null;const sa=rank(ta),sb=rank(tb);if(sa!==null&&sb!==null&&sa!==sb)return sb-sa;if((sa!==null)!==(sb!==null))return sa===null?1:-1;return stable(a,b)}
   if(sort==='year')return (Number(b.year)||0)-(Number(a.year)||0)||stable(a,b);
   if(sort==='count')return count(b)-count(a)||stable(a,b);
   if(sort==='rating'){
