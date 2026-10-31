@@ -73,7 +73,8 @@ function scoreCandidate(candidate){
  const total=weights.answers+weights.favorites+weights.ratings;
  const inferred=Math.max(0,Math.min(1,(baseline*weights.answers+(favoriteScore??0)*weights.favorites+(ratingScore??0)*weights.ratings)/total+Math.max(-.18,Math.min(.18,learnedSignal*.18*learnedReliability))+(isChampagne?confidence*champagneFit*.55:0)));
  // An explicit favorite on this exact cellar entry outweighs broad type/region matches.
- const score=candidate.favorite===true||candidate.favorite==='true'?Math.max(.84,Math.min(.96,inferred+.12)):inferred;
+ const favoriteAdjusted=candidate.favorite===true||candidate.favorite==='true'?Math.max(.84,Math.min(.96,inferred+.12)):inferred;
+ const score=directRating==='same'?Math.max(.60,favoriteAdjusted):favoriteAdjusted;
  return {score:Math.round(score*100),confidence:(sensory.confidence==='high'&&relevant.length>=2)?'high':(sensory.confidence==='medium'||baseHits>=2||relevant.length>=1)?'medium':'low',weights:{answers:Math.round(weights.answers/total*100),favorites:Math.round(weights.favorites/total*100),ratings:Math.round(weights.ratings/total*100)},evidence:{favoriteHits,matchedRatings:matchedRated.length,baseHits,directVerdict:directRating}};
 }
 window.vinTasteScore=scoreCandidate;if(typeof window.render==='function')window.render();
