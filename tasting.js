@@ -69,7 +69,7 @@ function scoreCandidate(candidate){
  const matchedRated=rated.filter(t=>t.rating!=='same').filter(t=>{const w=cellar.find(w=>String(w.id)===String(t.wine_id));return w?matching(w):s.includes(normalize(t.wine_name))});
  const ratingScore=matchedRated.length?matchedRated.reduce((a,t)=>a+({up:1,same:.5,down:0}[t.rating]??.5),0)/matchedRated.length:null;
  // Datatillid: én vurdering kan højst aktivere en tredjedel af vurderingsvægten.
- const weights={answers:.2,favorites:favoriteScore===null?0:.4,ratings:ratingScore===null?0:.4*Math.min(1,rated.length/3)};
+ const weights={answers:.2,favorites:favoriteScore===null?0:.4,ratings:ratingScore===null?0:.4*Math.min(1,rated.filter(t=>t.rating==='up'||t.rating==='down').length/3)};
  const total=weights.answers+weights.favorites+weights.ratings;
  const inferred=Math.max(0,Math.min(1,(baseline*weights.answers+(favoriteScore??0)*weights.favorites+(ratingScore??0)*weights.ratings)/total+Math.max(-.18,Math.min(.18,learnedSignal*.18*learnedReliability))+(isChampagne?confidence*champagneFit*.55:0)));
  // An explicit favorite on this exact cellar entry outweighs broad type/region matches.
