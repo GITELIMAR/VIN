@@ -45,12 +45,32 @@ function renderSoon(){
  const selected=wines.filter(w=>urgency(w,now)).sort((a,b)=>(number(a.to)??9999)-(number(b.to)??9999)||a.producer.localeCompare(b.producer,'da')).slice(0,3);
  e('v2-soon-grid').innerHTML=selected.length?selected.map(w=>'<article class="v2-soon"><strong>'+h(w.producer)+'</strong><div class="meta">'+h(w.name)+' · '+h(w.year??'NV')+' · '+count(w)+' fl.</div><div class="year">'+(number(w.to)<now?'Drikkevindue passeret':'Drik senest '+h(w.to))+'</div></article>').join(''):'<p class="v2-muted">Ingen vine nærmer sig slutningen af deres drikkevindue.</p>';
 }
+function tasteCategory(t){
+ if(!t)return null;
+ const n=t.score, e=t.evidence||{}, solid=t.confidence==='medium'||t.confidence==='high';
+ if(n<43)return 'Dårligt match';
+ if(n<56)return 'Usikkert match';
+ if(n<70)return 'Muligt match';
+ if(n<82)return solid&&e.matchedRatings>=3?'Godt match':'Muligt match';
+ return solid&&e.matchedRatings>=5&&e.attributesKnown>=4?'Meget stærkt match':solid&&e.matchedRatings>=3?'Godt match':'Muligt match';
+}
+function tasteReasons(w,t){
+ const p=w.sensory_profile||{}, positive=[],warnings=[];
+ if(['full','medium_full'].includes(p.body))positive.push('Fyldig stil');
+ if(['creamy','round','silky','velvety','soft','smooth'].includes(p.texture))positive.push('Blød eller cremet tekstur');
+ if(['ripe','mature','dried'].includes(p.fruit))positive.push('Moden frugt');
+ if(p.acidity==='high')warnings.push('Markant syre kan være et minus');
+ if(p.texture==='lean')warnings.push('Slank mundfølelse');
+ if(!p.alcohol_integration)warnings.push('Alkoholens integration er ikke dokumenteret');
+ if((t?.evidence?.attributesKnown||0)<4)warnings.push('Få dokumenterede vinegenskaber');
+ return {positive:positive.slice(0,2),warnings:warnings.slice(0,2)};
+}
 function card(w){
  const wineType=String(w.type||'');
  const categoryClass=wineType==='Hvidvin'?'white':wineType==='Champagne'||wineType==='Mousserende'?'sparkling':'red';
  const s=status(w),r=score(w);const taste=typeof window.vinTasteScore==='function'?window.vinTasteScore(w):null;const verdict=taste?.evidence?.directVerdict||null;
  const verdictLabel=({down:'Kan ikke lide',up:'Kan lide',love:'Elsker',same:'Okay'})[verdict]||null;
- const tasteHtml=verdictLabel?'<div class="meta" style="margin-top:7px"><strong style="color:#d9bd87">Din vurdering: '+h(verdictLabel)+'</strong><div style="margin-top:3px">Allerede smagt · ingen forudsigelse vises</div></div>':taste?'<div class="meta" style="margin-top:7px">Forudsagt match: <strong>'+taste.score+' / 100</strong> · '+({high:'Højt',medium:'Middel',low:'Begrænset'}[taste.confidence]||'Begrænset')+' datagrundlag</div>':'';
+ const reasons=tasteReasons(w,taste);const tasteHtml=verdictLabel?'<div class="meta" style="margin-top:7px"><strong style="color:#d9bd87">Din vurdering: '+h(verdictLabel)+'</strong><div style="margin-top:3px">Allerede smagt · ingen forudsigelse vises</div></div>':taste?'<div class="meta" style="margin-top:7px"><strong>Forudsagt: '+h(tasteCategory(taste))+'</strong> · '+({high:'Høj',medium:'Middel',low:'Lav'}[taste.confidence]||'Lav')+' sikkerhed'+(reasons.positive.length?'<div style="margin-top:3px">✓ '+h(reasons.positive.join(' · '))+'</div>':'')+(reasons.warnings.length?'<div style="margin-top:3px">⚠ '+h(reasons.warnings.join(' · '))+'</div>':'')+'</div>':'';
  const ratingHtml=r?'<div class="v2-rating"><strong>'+h(Number.isInteger(r.value)?r.value:r.value.toFixed(1))+'/100</strong>'+h(r.label)+(r.details?'<small>'+h(r.details)+'</small>':'')+(r.url&&/^https:\/\//i.test(r.url)?'<small><a href="'+h(r.url)+'" target="_blank" rel="noopener noreferrer">Se kilde</a></small>':'')+'</div>':'';
  const reviews=Array.isArray(w.reviews)?w.reviews.filter(x=>x.kind==='anmeldelse'&&Number.isFinite(Number(x.score))):[];
  const links=reviews.length?'<details class="v2-details"><summary>Alle dokumenterede anmeldelser ('+reviews.length+')</summary>'+reviews.map(x=>'<p><strong>'+h(x.score)+'/100 · '+h(x.source)+'</strong>'+(x.url&&/^https:\/\//i.test(x.url)?' · <a href="'+h(x.url)+'" target="_blank" rel="noopener noreferrer">Kilde</a>':'')+(x.context?' · '+h(x.context):'')+'</p>').join('')+'</details>':'';
