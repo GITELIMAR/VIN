@@ -37,46 +37,101 @@ const normalize=s=>String(s||'').toLocaleLowerCase('da').normalize('NFD').replac
 const baseTerms=['chardonnay','viognier','blanc de blancs','champagne','ribera del duero','toro','rhône','rhone','châteauneuf','chateauneuf','px','pedro ximenez','sauternes','cremet','fyldig','moden','brioche','nødder'];
 const avoidTerms=['meget syrlig','skarp syre','grøn sauvignon','ung chablis'];
 let allTastings=[];
-function scoreCandidate(candidate){
- const s=normalize([candidate.name,candidate.producer,candidate.region,candidate.country,candidate.type,candidate.note].filter(Boolean).join(' '));
+function scoreCandidate(candidate, options={}){
  const cellar=typeof wines!=='undefined'?wines:[];
- const fav=cellar.filter(w=>w.favorite);
- const ratingMap=new Map();for(const t of allTastings){const key=normalize(t.wine_id||[t.wine_name,t.vintage].join('|'));if(!ratingMap.has(key))ratingMap.set(key,t)}
- const rated=[...ratingMap.values()];
- const exactRatings=rated.filter(t=>{if(candidate.id&&t.wine_id&&String(candidate.id)===String(t.wine_id))return true;const candidateName=normalize([candidate.producer,candidate.name].filter(Boolean).join(' '));const tastingName=normalize(t.wine_name||'');return candidateName.length>5&&tastingName.length>5&&(candidateName===tastingName||candidateName.includes(tastingName)||tastingName.includes(candidateName))&&(!candidate.year||!t.vintage||String(candidate.year)===String(t.vintage));});
-
- const matching=w=>{const a=normalize([w.producer,w.name].filter(Boolean).join(' '));const b=normalize([candidate.producer,candidate.name].filter(Boolean).join(' '));return a.length>5&&b.length>5&&(a===b||a.includes(b)||b.includes(a));};
- // Learn from the sensory characteristics of personally liked and disliked wines.
- const attributes=['body','acidity','fruit','texture','oak','maturity'];
- const sensorySimilarity=(a,b)=>{const x=a?.sensory_profile||{},y=b?.sensory_profile||{};let matched=0,total=0;for(const k of attributes){if(!x[k]||!y[k]||x[k]==='unknown'||y[k]==='unknown')continue;total++;if(x[k]===y[k])matched++;}return total>=3?matched/total:null;};
- const learned=[];
- for(const w of cellar){const own=rated.find(t=>String(t.wine_id)===String(w.id));const sentiment=own?.rating==='down'?-1:own?.rating==='love'?1:own?.rating==='up'?.65:own?.rating==='same'?null:w.favorite?0.7:null;if(sentiment===null||String(w.id)===String(candidate.id))continue;const similarity=sensorySimilarity(candidate,w);if(similarity===null)continue;const trust=w.sensory_profile?.confidence==='high'?1:w.sensory_profile?.confidence==='medium'?.65:.25;learned.push({sentiment,similarity,trust});}
- const relevant=learned.filter(x=>x.similarity>=.67).sort((a,b)=>b.similarity*b.trust-a.similarity*a.trust).slice(0,8);
- const learnedSignal=relevant.length?relevant.reduce((sum,x)=>sum+x.sentiment*x.similarity*x.trust,0)/relevant.reduce((sum,x)=>sum+x.similarity*x.trust,0):0; const learnedReliability=Math.min(1,relevant.length/3);
- const baseHits=baseTerms.filter(t=>s.includes(normalize(t))).length,avoidHits=avoidTerms.filter(t=>s.includes(normalize(t))).length;
- const sensory=candidate.sensory_profile||{};
- const confidence=sensory.confidence==='high'?1:sensory.confidence==='medium'?.6:.2;
- const isChampagne=normalize(candidate.type).includes('champagne')||normalize(candidate.name).includes('champagne');
- const balancedAcidity=(sensory.acidity==='high'||sensory.acidity==='medium_high')&&(sensory.body==='full'||sensory.body==='medium_full')&&(sensory.texture==='creamy'||sensory.texture==='rich');
- const sensoryFit=(sensory.body==='full'?.10:sensory.body==='medium_full'?.07:0)+(sensory.texture==='creamy'?.10:sensory.texture==='rich'?.06:0)+((sensory.fruit==='ripe'||sensory.fruit==='mature')?.06:0)-(sensory.acidity==='high'?(balancedAcidity?.035:.12):sensory.acidity==='medium_high'?(balancedAcidity?0:.035):0);
- const champagneFit=isChampagne?(sensory.body==='medium_full'||sensory.body==='full'?.07:0)+(sensory.texture==='creamy'?.09:0)+(sensory.fruit==='mature'?.07:sensory.fruit==='ripe'?.04:0)+(sensory.maturity==='mature'?.05:0):0;
- const evidenceScale=Math.min(1,(baseHits+avoidHits)/3); const baseline=Math.max(0,Math.min(1,.5+evidenceScale*(.12*baseHits-.25*avoidHits)+confidence*sensoryFit+confidence*champagneFit));
- // A direct tasting is authoritative, but the profile adjusts the position within its band.
- // These are calibrated preference estimates, not user-entered 0–100 ratings.
- const directRating=exactRatings.length?exactRatings[0].rating:null;
-
- const favoriteHits=fav.filter(matching).length;const favoriteScore=favoriteHits?Math.min(1,.5+.25*favoriteHits):null;
- const matchedRated=rated.filter(t=>t.rating!=='same').filter(t=>{const w=cellar.find(w=>String(w.id)===String(t.wine_id));return w?matching(w):s.includes(normalize(t.wine_name))});
- const ratingScore=matchedRated.length?matchedRated.reduce((a,t)=>a+({love:1,up:.75,same:.5,down:0}[t.rating]??.5),0)/matchedRated.length:null;
- // Datatillid: én vurdering kan højst aktivere en tredjedel af vurderingsvægten.
- const weights={answers:.2,favorites:favoriteScore===null?0:.4,ratings:ratingScore===null?0:.4*Math.min(1,rated.filter(t=>t.rating==='up'||t.rating==='love'||t.rating==='down').length/3)};
- const total=weights.answers+weights.favorites+weights.ratings;
- const inferred=Math.max(0,Math.min(1,(baseline*weights.answers+(favoriteScore??0)*weights.favorites+(ratingScore??0)*weights.ratings)/total+Math.max(-.18,Math.min(.18,learnedSignal*.18*learnedReliability))+(isChampagne?confidence*champagneFit*.55:0)));
- // An explicit favorite on this exact cellar entry outweighs broad type/region matches.
- const favoriteAdjusted=candidate.favorite===true||candidate.favorite==='true'?Math.max(.84,Math.min(.96,inferred+.12)):inferred;
- const score=directRating==='love'?Math.max(.88,favoriteAdjusted):directRating==='up'?Math.max(.70,favoriteAdjusted):directRating==='same'?Math.max(.60,favoriteAdjusted):directRating==='down'?Math.min(.39,favoriteAdjusted):favoriteAdjusted;
- return {score:Math.round(score*100),confidence:(sensory.confidence==='high'&&relevant.length>=2)?'high':(sensory.confidence==='medium'||baseHits>=2||relevant.length>=1)?'medium':'low',weights:{answers:Math.round(weights.answers/total*100),favorites:Math.round(weights.favorites/total*100),ratings:Math.round(weights.ratings/total*100)},evidence:{favoriteHits,matchedRatings:matchedRated.length,baseHits,directVerdict:directRating}};
+ const keyOf=w=>normalize([w.producer,w.name,w.year||''].join('|'));
+ const candidateKey=keyOf(candidate);
+ const candidateId=String(candidate.id||'');
+ const ratingMap=new Map();
+ for(const t of allTastings){
+  const w=cellar.find(w=>t.wine_id&&String(w.id)===String(t.wine_id));
+  const key=w?keyOf(w):normalize([t.wine_name,t.vintage||''].join('|'));
+  if(!ratingMap.has(key))ratingMap.set(key,t);
+ }
+ const rated=[...ratingMap.entries()].map(([key,t])=>({key,t,w:cellar.find(w=>t.wine_id&&String(w.id)===String(t.wine_id))}));
+ const own=rated.find(x=>x.key===candidateKey||(candidateId&&x.t.wine_id&&String(x.t.wine_id)===candidateId));
+ const directRating=own?.t.rating||null;
+ const norm=normalize;
+ const attrs=['body','acidity','fruit','texture','oak','maturity'];
+ const ordinal={
+  body:{light:0,medium_light:1,medium:2,medium_full:3,full:4},
+  acidity:{low:0,medium_low:1,medium:2,medium_high:3,high:4},
+  fruit:{fresh:0,ripe:2,mature:3},
+  texture:{lean:0,crisp:1,round:2,rich:3,creamy:3},
+  oak:{none:0,low:1,medium:2,high:3},
+  maturity:{young:0,developing:1,mature:2}
+ };
+ const profile=w=>w?.sensory_profile||{};
+ const known=w=>attrs.filter(k=>profile(w)[k]&&profile(w)[k]!=='unknown');
+ const similarity=(a,b)=>{
+  let weighted=0,weight=0;
+  for(const k of attrs){
+   const av=profile(a)[k],bv=profile(b)[k];
+   if(!av||!bv||av==='unknown'||bv==='unknown')continue;
+   const values=ordinal[k],v1=values[av],v2=values[bv];
+   const sim=v1!==undefined&&v2!==undefined?Math.max(0,1-Math.abs(v1-v2)/Math.max(2,Math.max(...Object.values(values)))):(av===bv?1:0);
+   const importance=k==='body'||k==='acidity'||k==='texture'?1.5:1;
+   weighted+=sim*importance;weight+=importance;
+  }
+  return weight>=3?weighted/weight:null;
+ };
+ const textOf=w=>norm([w.name,w.producer,w.type,w.region,w.country,w.grapes,w.notes].filter(Boolean).join(' '));
+ const text=textOf(candidate);
+ const type=norm(candidate.type);
+ const isChampagne=type.includes('champagne')||type.includes('mousserende');
+ const typeTerms=isChampagne?['blanc de blancs','champagne','brioche','cremet','moden']:type.includes('hvid')?['chardonnay','viognier','cremet','fyldig','moden']:type.includes('dessert')||type.includes('port')?['px','pedro ximenez','sauternes','moden']:['ribera del duero','toro','rhone','chateauneuf','fyldig','moden'];
+ const positiveTerms=typeTerms.filter(t=>text.includes(norm(t))).length;
+ const negativeTerms=['skarp syre','meget syrlig','grøn sauvignon','ung chablis'].filter(t=>text.includes(norm(t))).length;
+ const p=profile(candidate);
+ const isKnown=k=>p[k]&&p[k]!=='unknown';
+ let prior=.60;
+ prior+=Math.min(.12,positiveTerms*.035)-Math.min(.18,negativeTerms*.09);
+ if(isKnown('body'))prior+=p.body==='full'?.065:p.body==='medium_full'?.045:p.body==='light'?-.045:0;
+ if(isKnown('texture'))prior+=p.texture==='creamy'?.07:p.texture==='rich'?.055:p.texture==='round'?.025:p.texture==='lean'?-.04:0;
+ if(isKnown('fruit'))prior+=p.fruit==='ripe'||p.fruit==='mature'?.04:0;
+ if(isKnown('acidity')){
+  const balanced=(p.body==='full'||p.body==='medium_full')&&(p.texture==='creamy'||p.texture==='rich'||p.fruit==='ripe'||p.fruit==='mature');
+  prior+=p.acidity==='high'?(balanced?-.015:-.10):p.acidity==='medium_high'?(balanced?0:-.035):0;
+ }
+ if(isChampagne&&p.maturity==='mature')prior+=.04;
+ const evidence=[];
+ for(const x of rated){
+  if(x.key===candidateKey||(candidateId&&x.t.wine_id&&String(x.t.wine_id)===candidateId))continue;
+  const w=x.w||{name:x.t.wine_name,year:x.t.vintage,...(x.t.wine_details||{})};
+  const verdict=x.t.rating;
+  if(verdict==='same')continue;
+  const label=verdict==='love'?1:verdict==='up'?.72:verdict==='down'?.12:null;
+  if(label===null)continue;
+  const sensorySim=similarity(candidate,w);
+  const sameType=type&&norm(w.type)===type;
+  const sameRegion=candidate.region&&w.region&&norm(candidate.region)===norm(w.region);
+  const sameGrapes=candidate.grapes&&w.grapes&&norm(candidate.grapes)===norm(w.grapes);
+  let sim=sensorySim!==null?sensorySim*.85:0;
+  if(sameType)sim+=.10;
+  if(sameRegion)sim+=.06;
+  if(sameGrapes)sim+=.12;
+  if(sensorySim===null&&!sameRegion&&!sameGrapes)continue;
+  if(sim<.4)continue;
+  const quality=sensorySim===null?.35:(profile(w).confidence==='high'?1:profile(w).confidence==='medium'?.75:.5);
+  evidence.push({label,weight:sim*quality,sim});
+ }
+ evidence.sort((a,b)=>b.weight-a.weight);
+ const neighbors=evidence.slice(0,8);
+ const evidenceWeight=neighbors.reduce((n,x)=>n+x.weight,0);
+ const learned= evidenceWeight?neighbors.reduce((n,x)=>n+x.label*x.weight,0)/evidenceWeight:null;
+ const blend=learned===null?0:Math.min(.65,evidenceWeight/(evidenceWeight+2));
+ const predicted=Math.max(.05,Math.min(.95,prior*(1-blend)+(learned??prior)*blend));
+ const attributesKnown=known(candidate).length;
+ const confidence=attributesKnown>=4&&neighbors.length>=5&&evidenceWeight>=3?'medium':'low';
+ return {score:Math.round(predicted*100),confidence,weights:{answers:Math.round((1-blend)*100),favorites:0,ratings:Math.round(blend*100)},evidence:{directVerdict:directRating,matchedRatings:neighbors.length,attributesKnown,prior:Math.round(prior*100),isPrediction:true}};
 }
+window.vinTasteModelTest=function(){
+ const cellar=typeof wines!=='undefined'?wines:[];
+ const latest=new Map();
+ for(const t of allTastings){const w=cellar.find(w=>t.wine_id&&String(w.id)===String(t.wine_id));if(!w)continue;if(!latest.has(String(w.id)))latest.set(String(w.id),t);}
+ return {ratedWines:latest.size,withSensory:[...latest.keys()].filter(id=>cellar.find(w=>String(w.id)===id)?.sensory_profile).length,validation:'Not yet independently validated'};
+};
+
 window.vinTasteScore=scoreCandidate;if(typeof window.render==='function')window.render();
 function renderDiscoveries(){const target=$('taste-discoveries-body');if(!target)return;const cellar=typeof wines!=='undefined'?wines:[];const unique=new Map();for(const t of allTastings){const key=normalize(t.wine_id||[t.wine_name,t.vintage].join('|'));if(!unique.has(key))unique.set(key,t)}const votes=[...unique.values()];const favorites=cellar.filter(w=>w.favorite);const groups=new Map();for(const t of votes){const w=cellar.find(w=>String(w.id)===String(t.wine_id))||cellar.find(w=>normalize([w.producer,w.name].filter(Boolean).join(' '))===normalize(t.wine_name)&&String(w.year||'')===String(t.vintage||''));const details={...(w||{}),...(t.wine_details||{})};if(!w&&!Object.values(t.wine_details||{}).some(Boolean))continue;for(const [kind,value] of [['Vintype',details.type],['Region',details.region],['Land',details.country],['Druer',details.grapes]]){if(!value)continue;const key=kind+'|'+normalize(value);if(!groups.has(key))groups.set(key,{kind,value,up:0,same:0,down:0,love:0});if(t.rating in groups.get(key))groups.get(key)[t.rating]++}}const qualified=[...groups.values()].filter(g=>g.up+g.same+g.down+g.love>=3&&(g.up+g.love>=2||g.down>=2)).sort((a,b)=>(b.up+b.down)-(a.up+a.down));const confidence=g=>{const n=g.up+g.same+g.down+g.love;return n>=10?'moderat':n>=5?'begrænset':'foreløbig'};let lines=['<p>'+votes.length+' forskellige vine vurderet · '+favorites.length+' favoritter. Dine 22 oprindelige svar indgår som grundprofil.</p>'];if(!qualified.length)lines.push('<p>Der er endnu ikke nok sammenlignelige vurderinger til at dokumentere en ny præference. Mindst 3 forskellige vine i en kategori er nødvendige.</p>');else{lines.push('<p><strong>Observerede mønstre</strong></p>');for(const g of qualified.slice(0,6)){const direction=g.up+g.love>g.down?'Oftere positiv':'Oftere negativ';lines.push('<p>'+direction+' for '+escape(g.kind.toLowerCase())+' <strong>'+escape(g.value)+'</strong> · '+g.love+' kan rigtig godt lide, '+g.up+' kan lide, '+g.same+' tidligere okay, '+g.down+' kan ikke lide · sikkerhed: '+confidence(g)+'.</p>')}}lines.push('<p>Vine uden kendt vintype, region eller land kan ikke bruges til disse kategorimønstre. Druer, syre, fad og tanniner udledes ikke uden dokumenterede oplysninger.</p>');target.innerHTML=lines.join('');}
 function renderCombined(){const target=$('taste-combined');if(!target)return;const cellar=typeof wines!=='undefined'?wines:[];const fav=cellar.filter(w=>w.favorite);const rated=new Set(allTastings.map(t=>normalize(t.wine_id||[t.wine_name,t.vintage].join('|'))));const example=scoreCandidate({name:'Champagne Blanc de Blancs'});target.textContent='Samlet smagsmodel: 40 % vurderinger · 40 % favoritter · 20 % dine 22 svar. Aktuelt '+rated.size+' forskellige vurderinger og '+fav.length+' favoritter. Manglende eller sparsomme data nedvægtes automatisk. Match-score er et forsigtigt estimat baseret på kendte ord og vinoplysninger, ikke en smagsgaranti.';}
