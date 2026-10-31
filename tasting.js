@@ -86,5 +86,19 @@ window.addEventListener('pageshow',()=>{loadHistory();});
 setTimeout(()=>loadHistory(),1500);
 async function loadHistory(){try{await connect();const {data,error}=await client.from('wine_tastings').select('id,wine_id,wine_name,vintage,rating,created_at,wine_details').order('created_at',{ascending:false}).limit(1000);if(error)throw error;const all=data||[];$('tasting-history-count').textContent='('+new Set(all.map(t=>String(t.wine_id||[t.wine_name,t.vintage].join('|')).toLowerCase())).size+' vine)';allTastings=all;if(typeof window.render==='function')window.render();renderCombined();renderDiscoveries();$('tasting-learning').innerHTML=all.length?learn(all):'Ingen vurderinger endnu. Din oprindelige smagsprofil bevares.';history.innerHTML=all.slice(0,20).map(x=>'<div class="tasting-entry"><span>'+({love:'❤️',up:'👍',same:'↔️',down:'👎'}[x.rating]||'')+' '+escape(x.wine_name)+' '+escape(x.vintage||'')+'</span><button type="button" data-delete="'+escape(x.id)+'" class="ghost btn">Fortryd</button></div>').join('');history.querySelectorAll('[data-delete]').forEach(b=>b.onclick=async()=>{if(!confirm('Slet denne vurdering? Eventuelt lagerfradrag bliver ikke automatisk fortrudt.'))return;const {error}=await client.from('wine_tastings').delete().eq('id',b.dataset.delete);if(error)feedback.textContent=error.message;else await loadHistory()});}catch(e){$('tasting-learning').textContent=e.message;}}
 
+// Hurtig vurdering direkte fra samlingens vinkort.
+window.rateCellarWine=async function(id,rating){
+ if(!['down','up','love'].includes(rating))throw Error('Ugyldig vurdering');
+ const w=(typeof wines!=='undefined'?wines:[]).find(item=>String(item.id)===String(id));
+ if(!w)throw Error('Vinen blev ikke fundet i samlingen');
+ await connect();
+ const wineName=[w.producer,w.name].filter(Boolean).join(' ').trim();
+ if(!wineName)throw Error('Vinen mangler navn');
+ const vintage=String(w.year||'');
+ const details={type:w.type||'',country:w.country||'',region:w.region||'',grapes:w.grapes||'',notes:w.notes||''};
+ const {error}=await client.from('wine_tastings').insert({user_id:session.user.id,wine_name:wineName,vintage:vintage||null,rating,wine_id:/^[0-9a-f-]{36}$/i.test(String(w.id))?w.id:null,wine_details:details});
+ if(error)throw error;
+ await loadHistory();
+};
 $('tasting-save').onclick=async()=>{const name=$('tasting-name').value.trim(),vintage=$('tasting-year').value.trim(),decrement=$('tasting-decrement').checked,chosen=(typeof wines!=='undefined'?wines:[]).find(w=>String(w.id)===list.value);if(source==='cellar'&&!chosen){feedback.textContent='Vælg en vin fra samlingen.';return}if(!name||!selected){feedback.textContent='Angiv vin og vælg din vurdering.';return}if(decrement&&(!chosen||chosen.count<1)){feedback.textContent='Vælg en vin, du har på lager.';return}const button=$('tasting-save');button.disabled=true;try{await connect();const payload={user_id:session.user.id,wine_name:name,vintage:vintage||null,rating:selected,wine_id:chosen&&/^[0-9a-f-]{36}$/i.test(String(chosen.id))?chosen.id:null,wine_details:getMetadata()};const {error}=await client.from('wine_tastings').insert(payload);if(error)throw error;if(decrement){chosen.count-=1;save();render();}feedback.textContent='Vurderingen er gemt'+(decrement?' og én flaske er trukket fra lageret.':'.');$('tasting-photo').value='';preview.hidden=true;setMetadata(null);$('tasting-name').value='';$('tasting-year').value='';$('tasting-decrement').checked=false;selected=null;root.querySelectorAll('[data-rating]').forEach(b=>b.setAttribute('aria-pressed','false'));populate();await loadHistory();}catch(e){feedback.textContent='Kunne ikke gemme: '+e.message}finally{button.disabled=false}};
 })();
