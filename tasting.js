@@ -53,13 +53,14 @@ function scoreCandidate(candidate, options={}){
  const directRating=own?.t.rating||null;
  const norm=normalize;
  const attrs=['body','acidity','fruit','texture','oak','maturity'];
+ const negativeExperience=t=>/poor|dominerende|sprittet|uelegant|mangler elegance|ubalance/i.test([t?.wine_details?.alcohol_integration,t?.wine_details?.balance,t?.wine_details?.personal_tasting_note].join(' '));
  const ordinal={
   body:{light:0,medium_light:1,medium:2,medium_full:3,full:4},
   acidity:{low:0,medium_low:1,medium:2,medium_high:3,high:4},
-  fruit:{fresh:0,ripe:2,jammy:2,mature:3,dried:3},
-  texture:{lean:0,crisp:1,round:2,smooth:2,rich:3,creamy:3,velvety:3,silky:3},
+  fruit:{fresh:0,citrus:0,red_fruit:1,stone_fruit:2,mixed:2,ripe:2,jammy:2,mature:3,dried:3},
+  texture:{lean:0,crisp:1,firm_tannins:1,structured:2,integrated_tannins:3,soft:3,generous:3,fine_mousse:3,round:3,smooth:3,rich:3,creamy:3,velvety:3,silky:3},
   oak:{none:0,low:1,present:2,medium:2,high:3},
-  maturity:{young:0,developing:1,mature:2}
+  maturity:{young:0,developing:1,developed:2,mature:2}
  };
  const profile=w=>w?.sensory_profile||{};
  const known=w=>attrs.filter(k=>profile(w)[k]&&profile(w)[k]!=='unknown');
@@ -87,7 +88,7 @@ function scoreCandidate(candidate, options={}){
  const negativeTerms=['skarp syre','meget syrlig','grøn sauvignon','ung chablis'].filter(t=>text.includes(norm(t))).length;
  const p=profile(candidate);
  const isKnown=k=>p[k]&&p[k]!=='unknown';
- const rich=['rich','creamy','velvety','round','silky','smooth'].includes(p.texture);
+ const rich=['rich','creamy','velvety','round','silky','smooth','soft','integrated_tannins','generous'].includes(p.texture);
  const ripe=['ripe','mature','dried','jammy'].includes(p.fruit);
  const full=['full','medium_full'].includes(p.body);
  let prior=.60;
@@ -117,7 +118,7 @@ function scoreCandidate(candidate, options={}){
   const w=x.w||{name:x.t.wine_name,year:x.t.vintage,...(x.t.wine_details||{})};
   const verdict=x.t.rating;
   if(verdict==='same')continue;
-  const label=verdict==='love'?1:verdict==='up'?.72:verdict==='down'?.12:null;
+  const label=verdict==='love'?1:verdict==='up'?.75:verdict==='down'?(negativeExperience(x.t)?.04:.12):null;
   if(label===null)continue;
   const sensorySim=similarity(candidate,w);
   const sameType=type&&norm(w.type)===type;
@@ -129,17 +130,18 @@ function scoreCandidate(candidate, options={}){
   if(sameGrapes)sim+=.12;
   if(sensorySim===null&&!sameRegion&&!sameGrapes)continue;
   if(sim<.4)continue;
-  const quality=sensorySim===null?.35:(profile(w).confidence==='high'?1:profile(w).confidence==='medium'?.75:.5);
+  const candidateQuality=profile(candidate).confidence==='high'?1:profile(candidate).confidence==='medium'?.8:.55;
+  const quality=(sensorySim===null?.25:(profile(w).confidence==='high'?1:profile(w).confidence==='medium'?.75:.4))*candidateQuality;
   evidence.push({label,weight:sim*quality,sim});
  }
  evidence.sort((a,b)=>b.weight-a.weight);
  const neighbors=evidence.slice(0,8);
  const evidenceWeight=neighbors.reduce((n,x)=>n+x.weight,0);
  const learned= evidenceWeight?neighbors.reduce((n,x)=>n+x.label*x.weight,0)/evidenceWeight:null;
- const blend=learned===null?0:Math.min(.65,evidenceWeight/(evidenceWeight+2));
+ const blend=learned===null?0:Math.min(.75,evidenceWeight/(evidenceWeight+1.8));
  const predicted=Math.max(.05,Math.min(.95,prior*(1-blend)+(learned??prior)*blend));
  const attributesKnown=known(candidate).length;
- const confidence=attributesKnown>=4&&neighbors.length>=5&&evidenceWeight>=3?'medium':'low';
+ const confidence=attributesKnown>=4&&neighbors.length>=5&&evidenceWeight>=3&&['medium','high'].includes(p.confidence)?'medium':'low';
  return {score:Math.round(predicted*100),confidence,weights:{answers:Math.round((1-blend)*100),favorites:0,ratings:Math.round(blend*100)},evidence:{directVerdict:directRating,matchedRatings:neighbors.length,attributesKnown,prior:Math.round(prior*100),isPrediction:true}};
 }
 window.vinTasteModelTest=function(){
@@ -151,7 +153,7 @@ window.vinTasteModelTest=function(){
 
 window.vinTasteScore=scoreCandidate;if(typeof window.render==='function')window.render();
 function renderDiscoveries(){const target=$('taste-discoveries-body');if(!target)return;const cellar=typeof wines!=='undefined'?wines:[];const unique=new Map();for(const t of allTastings){const key=normalize(t.wine_id||[t.wine_name,t.vintage].join('|'));if(!unique.has(key))unique.set(key,t)}const votes=[...unique.values()];const favorites=cellar.filter(w=>w.favorite);const groups=new Map();for(const t of votes){const w=cellar.find(w=>String(w.id)===String(t.wine_id))||cellar.find(w=>normalize([w.producer,w.name].filter(Boolean).join(' '))===normalize(t.wine_name)&&String(w.year||'')===String(t.vintage||''));const details={...(w||{}),...(t.wine_details||{})};if(!w&&!Object.values(t.wine_details||{}).some(Boolean))continue;for(const [kind,value] of [['Vintype',details.type],['Region',details.region],['Land',details.country],['Druer',details.grapes]]){if(!value)continue;const key=kind+'|'+normalize(value);if(!groups.has(key))groups.set(key,{kind,value,up:0,same:0,down:0,love:0});if(t.rating in groups.get(key))groups.get(key)[t.rating]++}}const qualified=[...groups.values()].filter(g=>g.up+g.same+g.down+g.love>=3&&(g.up+g.love>=2||g.down>=2)).sort((a,b)=>(b.up+b.down)-(a.up+a.down));const confidence=g=>{const n=g.up+g.same+g.down+g.love;return n>=10?'moderat':n>=5?'begrænset':'foreløbig'};let lines=['<p>'+votes.length+' forskellige vine vurderet · '+favorites.length+' favoritter. Dine 22 oprindelige svar indgår som grundprofil.</p>'];if(!qualified.length)lines.push('<p>Der er endnu ikke nok sammenlignelige vurderinger til at dokumentere en ny præference. Mindst 3 forskellige vine i en kategori er nødvendige.</p>');else{lines.push('<p><strong>Observerede mønstre</strong></p>');for(const g of qualified.slice(0,6)){const direction=g.up+g.love>g.down?'Oftere positiv':'Oftere negativ';lines.push('<p>'+direction+' for '+escape(g.kind.toLowerCase())+' <strong>'+escape(g.value)+'</strong> · '+g.love+' kan rigtig godt lide, '+g.up+' kan lide, '+g.same+' tidligere okay, '+g.down+' kan ikke lide · sikkerhed: '+confidence(g)+'.</p>')}}lines.push('<p>Vine uden kendt vintype, region eller land kan ikke bruges til disse kategorimønstre. Druer, syre, fad og tanniner udledes ikke uden dokumenterede oplysninger.</p>');target.innerHTML=lines.join('');}
-function renderCombined(){const target=$('taste-combined');if(!target)return;const cellar=typeof wines!=='undefined'?wines:[];const fav=cellar.filter(w=>w.favorite);const rated=new Set(allTastings.map(t=>normalize(t.wine_id||[t.wine_name,t.vintage].join('|'))));const example=scoreCandidate({name:'Champagne Blanc de Blancs'});target.textContent='Smagsmodel 2.0: vinegenskaber og sammenlignelige tidligere vurderinger. Aktuelt '+rated.size+' forskellige vurderinger og '+fav.length+' favoritter. Scoren er en uafhængig forudsigelse og ændres ikke direkte af din vurdering af samme vin. Sikkerhed er foreløbig og ikke statistisk valideret.';}
+function renderCombined(){const target=$('taste-combined');if(!target)return;const cellar=typeof wines!=='undefined'?wines:[];const fav=cellar.filter(w=>w.favorite);const rated=new Set(allTastings.map(t=>normalize(t.wine_id||[t.wine_name,t.vintage].join('|'))));const example=scoreCandidate({name:'Champagne Blanc de Blancs'});target.textContent='Smagsmodel 2.1: vinegenskaber og sammenlignelige tidligere vurderinger. Aktuelt '+rated.size+' forskellige vurderinger og '+fav.length+' favoritter. Scoren er en uafhængig forudsigelse og ændres ikke direkte af din vurdering af samme vin. Sikkerhed er foreløbig og ikke statistisk valideret.';}
 window.addEventListener('focus',renderCombined);
 // Load taste history independently of whether the Smagskompas accordion is opened.
 window.addEventListener('pageshow',()=>{loadHistory();});
@@ -167,7 +169,8 @@ window.rateCellarWine=async function(id,rating){
  const wineName=[w.producer,w.name].filter(Boolean).join(' ').trim();
  if(!wineName)throw Error('Vinen mangler navn');
  const vintage=String(w.year||'');
- const details={type:w.type||'',country:w.country||'',region:w.region||'',grapes:w.grapes||'',notes:w.notes||''};
+ const previous=allTastings.find(t=>String(t.wine_id)===String(w.id));
+ const details={...(previous?.wine_details||{}),type:w.type||'',country:w.country||'',region:w.region||'',grapes:w.grapes||'',notes:w.notes||''};
  const {error}=await client.from('wine_tastings').insert({user_id:session.user.id,wine_name:wineName,vintage:vintage||null,rating,wine_id:/^[0-9a-f-]{36}$/i.test(String(w.id))?w.id:null,wine_details:details});
  if(error)throw error;
  await loadHistory();
