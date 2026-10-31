@@ -66,7 +66,7 @@ function scoreCandidate(candidate){
  const directRating=exactRatings.length?exactRatings[0].rating:null;
 
  const favoriteHits=fav.filter(matching).length;const favoriteScore=favoriteHits?Math.min(1,.5+.25*favoriteHits):null;
- const matchedRated=rated.filter(t=>{const w=cellar.find(w=>String(w.id)===String(t.wine_id));return w?matching(w):s.includes(normalize(t.wine_name))});
+ const matchedRated=rated.filter(t=>t.rating!=='same').filter(t=>{const w=cellar.find(w=>String(w.id)===String(t.wine_id));return w?matching(w):s.includes(normalize(t.wine_name))});
  const ratingScore=matchedRated.length?matchedRated.reduce((a,t)=>a+({up:1,same:.5,down:0}[t.rating]??.5),0)/matchedRated.length:null;
  // Datatillid: én vurdering kan højst aktivere en tredjedel af vurderingsvægten.
  const weights={answers:.2,favorites:favoriteScore===null?0:.4,ratings:ratingScore===null?0:.4*Math.min(1,rated.length/3)};
